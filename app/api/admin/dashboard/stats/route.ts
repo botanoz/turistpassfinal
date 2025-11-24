@@ -28,7 +28,16 @@ export async function GET() {
 
     if (statsError) {
       console.error('Stats error:', statsError);
-      return NextResponse.json({ error: "Failed to fetch stats" }, { status: 500 });
+      console.error('Stats error details:', JSON.stringify(statsError, null, 2));
+      return NextResponse.json({
+        error: "Failed to fetch stats",
+        details: statsError.message || statsError.toString()
+      }, { status: 500 });
+    }
+
+    // Check if stats is empty or null
+    if (!stats || stats.length === 0) {
+      console.warn('No stats returned from database, using default values');
     }
 
     // Get previous month stats for comparison (mock for now, will be real in future FAZs)

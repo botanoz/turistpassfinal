@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Check, Info } from "lucide-react";
+import { ArrowRight, Check, Info, Heart } from "lucide-react";
 import { passesData, decorativeElements, passSelectionData } from "@/lib/mockData/passesData";
 import { getPlacesByPassId } from "@/lib/mockData/placesData";
 import PassSelectionSidebar from "@/components/PassSelectionSidebar";
@@ -57,7 +57,17 @@ function prepareFeaturedAttractions(passId: string) {
 
 // Convert database pass to mock format
 function convertDatabasePassToMockFormat(dbPass: DatabasePass): any {
+  // Debug logs (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔄 Converting pass:', dbPass.name);
+    console.log('📊 Pricing data:', dbPass.pricing);
+  }
+
   const adultPricing = dbPass.pricing?.find(p => p.age_group === 'adult' && p.days === 1);
+
+  if (process.env.NODE_ENV === 'development') {
+    console.log('💵 Adult pricing found:', adultPricing);
+  }
 
   // Group pricing by days
   const pricingByDays = new Map<number, { adult?: number; child?: number }>();
@@ -81,14 +91,54 @@ function convertDatabasePassToMockFormat(dbPass: DatabasePass): any {
     childPrice: prices.child || 0
   }));
 
-  return {
+  // If no pricing options available, create a default one
+  if (passOptions.length === 0) {
+    passOptions.push({
+      id: `${dbPass.id}-1`,
+      days: 1,
+      adultPrice: 99,
+      childPrice: 49
+    });
+  }
+
+  // Find the cheapest adult pricing to display
+  let displayPrice = 99; // Default fallback price
+  let displayDays = 1;
+
+  if (dbPass.pricing && dbPass.pricing.length > 0) {
+    const adultPricings = dbPass.pricing.filter(p => p.age_group === 'adult');
+
+    if (adultPricings.length > 0) {
+      // Sort by price ascending and get the cheapest
+      const cheapestAdultPricing = adultPricings.sort((a, b) => a.price - b.price)[0];
+      displayPrice = cheapestAdultPricing.price;
+      displayDays = cheapestAdultPricing.days;
+
+      if (process.env.NODE_ENV === 'development' && cheapestAdultPricing !== adultPricing) {
+        console.log('💰 Using cheapest adult pricing:', displayDays, 'days for $' + displayPrice);
+      }
+    }
+  }
+
+  // Fallback to 1-day pricing if it exists
+  if (adultPricing && adultPricing.price > 0) {
+    displayPrice = adultPricing.price;
+    displayDays = adultPricing.days;
+  }
+
+  // If still no price, log warning but continue with fallback
+  if (displayPrice === 99 && (!dbPass.pricing || dbPass.pricing.length === 0)) {
+    console.warn('⚠️ No pricing found for pass:', dbPass.name, '- using fallback price');
+  }
+
+  const result = {
     id: dbPass.id,
     title: dbPass.name,
     description: dbPass.short_description || dbPass.description,
-    price: adultPricing?.price || 0,
+    price: displayPrice,
     wasPrice: undefined,
     popular: dbPass.popular,
-    validDays: adultPricing?.days || 1,
+    validDays: displayDays,
     personType: 'adult',
     accessCount: dbPass.businesses?.length || 0,
     extraExperiences: undefined,
@@ -99,6 +149,11 @@ function convertDatabasePassToMockFormat(dbPass: DatabasePass): any {
     subtitle: dbPass.hero_subtitle || '',
     businesses: dbPass.businesses || [] // Add businesses for image strip
   };
+
+  if (process.env.NODE_ENV === 'development') {
+    console.log('✅ Final pass object:', result);
+  }
+  return result;
 }
 
 export default function PopularPasses() {
@@ -108,7 +163,7 @@ export default function PopularPasses() {
   const [selectedPass, setSelectedPass] = useState<string | null>(null);
   const [passes, setPasses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   // Split passes: primary (popular), sides (2), and the rest for carousel
@@ -132,19 +187,19 @@ export default function PopularPasses() {
   useEffect(() => {
     async function loadPasses() {
       try {
-      if (isSubmitting) return;
         setIsLoading(true);
-        console.log('🔄 Fetching passes...');
+        console.log('🔄 Fetching passes from database...');
+
         const response = await fetch('/api/passes/active');
         const result = await response.json();
-        console.log('✅ API Response:', result);
+
+        console.log('📦 API Response:', result);
 
         if (result.success) {
-          console.log('📦 Raw passes:', result.passes);
+          console.log('📊 Raw passes data:', result.passes);
           const convertedPasses = result.passes.map(convertDatabasePassToMockFormat);
-          console.log('🔄 Converted passes:', convertedPasses);
+          console.log('✅ Converted passes:', convertedPasses);
           setPasses(convertedPasses);
-          console.log('✅ Passes set! Count:', convertedPasses.length);
         } else {
           console.error('❌ Failed to load passes:', result.error);
         }
@@ -152,11 +207,87 @@ export default function PopularPasses() {
         console.error('❌ Error loading passes:', error);
       } finally {
         setIsLoading(false);
-        console.log('🏁 Loading complete');
       }
     }
     loadPasses();
   }, []);
+
+  // Fetch favorites
+  useEffect(() => {
+    async function fetchFavorites() {
+      try {
+        const response = await fetch('/api/customer/favorites');
+        const result = await response.json();
+
+        if (result.success) {
+          // Ensure the Set is strongly typed as Set<string>
+          const favIds = new Set<string>(result.favorites.map((f: any) => String(f.passId)));
+          setFavorites(favIds);
+        }
+      } catch (error) {
+        // User might not be logged in
+      }
+    }
+
+    fetchFavorites();
+  }, []);
+
+  // Toggle favorite
+  const handleToggleFavorite = async (e: React.MouseEvent, passId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      const isFavorited = favorites.has(passId);
+
+      if (isFavorited) {
+        // Remove from favorites - find the favorite ID first
+        const response = await fetch('/api/customer/favorites');
+        const result = await response.json();
+
+        if (result.success) {
+          const favorite = result.favorites.find((f: any) => f.passId === passId);
+          if (favorite) {
+            const deleteResponse = await fetch(`/api/customer/favorites/${favorite.id}`, {
+              method: 'DELETE'
+            });
+
+            const deleteResult = await deleteResponse.json();
+
+            if (deleteResult.success) {
+              setFavorites(prev => {
+                const newFavorites = new Set(prev);
+                newFavorites.delete(passId);
+                return newFavorites;
+              });
+              toast.success('Removed from favorites');
+            }
+          }
+        }
+      } else {
+        // Add to favorites
+        const response = await fetch('/api/customer/favorites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ passId })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          setFavorites(prev => new Set(Array.from(prev).concat(passId)));
+          toast.success('Added to favorites');
+        } else if (result.error === 'Unauthorized') {
+          toast.error('Please login to add favorites');
+        } else {
+          toast.error(result.error || 'Failed to add favorite');
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      toast.error('Failed to update favorite');
+    }
+  };
 
   // Set up intersection observer after component mounts
   useEffect(() => {
@@ -303,7 +434,10 @@ export default function PopularPasses() {
               </div>
             ))
           ) : (
-            [sidePasses[0], primaryPass, sidePasses[1]].filter(Boolean).map((pass: any, index) => (
+            [sidePasses[0], primaryPass, sidePasses[1]].filter(Boolean).map((pass: any, index) => {
+              const isFavorited = favorites.has(pass.id);
+
+              return (
             <div
               key={pass.id}
               className={`transition-all duration-700 transform
@@ -314,9 +448,19 @@ export default function PopularPasses() {
                 ${pass.popular ? 'shadow-primary/20 md:scale-105 md:-mt-3 md:-mb-3 z-10' : 'shadow-muted/20'}
                 hover:shadow-xl hover:scale-[1.02] transition-all duration-300`}>
 
+                {/* Favorite Button */}
+                <button
+                  onClick={(e) => handleToggleFavorite(e, pass.id)}
+                  className="absolute right-3 top-3 bg-white/90 hover:bg-white rounded-full p-2 transition-colors z-20 shadow-sm"
+                >
+                  <Heart
+                    className={`h-5 w-5 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-600'}`}
+                  />
+                </button>
+
                 {/* Popular tag */}
                 {pass.popular && (
-                  <div className="absolute right-0 top-6 bg-primary text-primary-foreground px-4 py-1 text-xs font-medium shadow-md">
+                  <div className="absolute right-0 top-14 bg-primary text-primary-foreground px-4 py-1 text-xs font-medium shadow-md">
                     Most popular
                   </div>
                 )}
@@ -326,13 +470,13 @@ export default function PopularPasses() {
                   <p className="text-sm text-muted-foreground mb-4">{pass.description}</p>
 
                   <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-bold text-primary">{pass.price}</span>
                     <span className="text-lg text-muted-foreground">$</span>
+                    <span className="text-4xl font-bold text-primary">{pass.price}</span>
                     <div className="ml-2 flex items-center">
                       {pass.wasPrice && (
                         <>
                           <span className="text-sm line-through text-muted-foreground mr-2">
-                            {pass.wasPrice}$
+                            ${pass.wasPrice}
                           </span>
                           <span className="text-xs font-medium bg-red-100 text-red-600 px-2 py-0.5 rounded">
                             SAVE {Math.round(((pass.wasPrice - pass.price) / pass.wasPrice) * 100)}%
@@ -343,7 +487,7 @@ export default function PopularPasses() {
                   </div>
 
                   <div className="text-xs text-muted-foreground mt-1">
-                    valid for {pass.validDays} day {pass.personType} pass
+                    from {pass.validDays} day{pass.validDays > 1 ? 's' : ''} {pass.personType} pass
                   </div>
                 </CardHeader>
 
@@ -415,7 +559,8 @@ export default function PopularPasses() {
                 </CardContent>
               </Card>
             </div>
-          ))
+          );
+            })
           )}
         </div>
 
@@ -429,16 +574,29 @@ export default function PopularPasses() {
               </Link>
             </div>
             <div className="flex gap-4 overflow-x-auto pb-2">
-              {otherPasses.map((pass: any) => (
-                <Card key={pass.id} className="min-w-[280px] max-w-[320px] flex-1 border hover:shadow-lg transition-shadow">
+              {otherPasses.map((pass: any) => {
+                const isFavorited = favorites.has(pass.id);
+
+                return (
+                <Card key={pass.id} className="min-w-[280px] max-w-[320px] flex-1 border hover:shadow-lg transition-shadow relative">
+                  {/* Favorite Button */}
+                  <button
+                    onClick={(e) => handleToggleFavorite(e, pass.id)}
+                    className="absolute right-2 top-2 bg-white/90 hover:bg-white rounded-full p-1.5 transition-colors z-10 shadow-sm"
+                  >
+                    <Heart
+                      className={`h-4 w-4 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-600'}`}
+                    />
+                  </button>
+
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-semibold">{pass.title}</CardTitle>
+                    <CardTitle className="text-base font-semibold pr-8">{pass.title}</CardTitle>
                     <p className="text-xs text-muted-foreground line-clamp-2">{pass.description}</p>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-2xl font-bold text-primary">{pass.price}</span>
                       <span className="text-sm text-muted-foreground">$</span>
+                      <span className="text-2xl font-bold text-primary">{pass.price}</span>
                     </div>
                     <div className="flex space-x-1 overflow-hidden rounded-md">
                       {getImagesForPass(pass).slice(0, 3).map((imageUrl, i) => (
@@ -452,7 +610,8 @@ export default function PopularPasses() {
                     </Button>
                   </CardContent>
                 </Card>
-              ))}
+              );
+              })}
             </div>
           </div>
         )}

@@ -8,6 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
   User as UserIcon,
   Mail,
   Calendar,
@@ -17,12 +27,14 @@ import {
   ArrowLeft,
   Edit2,
   Save,
-  X
+  X,
+  Key
 } from "lucide-react";
 import Link from "next/link";
 import type { User as LocalUser } from "@/lib/types/user";
 import { toast } from "sonner";
 import { authService } from "@/lib/services/authService";
+import FavoritesSection from "./FavoritesSection";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -37,6 +49,13 @@ export default function ProfilePage() {
     phone: ""
   });
   const [favoritesCount, setFavoritesCount] = useState(0);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  });
 
   const mapLocalPasses = (user: LocalUser) => {
   return (user.passes || []).map((pass) => ({
@@ -224,6 +243,58 @@ const hydrateFromLocalUser = (user: LocalUser) => {
     }
   };
 
+  const handleChangePassword = async () => {
+    // Validation
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      toast.error("Please fill in all password fields");
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+
+    if (passwordData.newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters long");
+      return;
+    }
+
+    try {
+      setIsChangingPassword(true);
+
+      const response = await fetch('/api/customer/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success("Password changed successfully");
+        setIsPasswordDialogOpen(false);
+        setPasswordData({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: ""
+        });
+      } else {
+        toast.error(result.error || "Failed to change password");
+      }
+    } catch (err: any) {
+      console.error('Error changing password:', err);
+      toast.error("Failed to change password");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   const getInitials = () => {
     const firstName = profile.first_name || "";
     const lastName = profile.last_name || "";
@@ -288,10 +359,75 @@ const hydrateFromLocalUser = (user: LocalUser) => {
                 </div>
               </div>
               {!isEditing && (
-                <Button onClick={handleEdit} variant="outline">
-                  <Edit2 className="h-4 w-4 mr-2" />
-                  Edit Profile
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={handleEdit} variant="outline">
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    Edit Profile
+                  </Button>
+                  <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline">
+                        <Key className="h-4 w-4 mr-2" />
+                        Change Password
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Change Password</DialogTitle>
+                        <DialogDescription>
+                          Enter your current password and choose a new password.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="current-password">Current Password</Label>
+                          <Input
+                            id="current-password"
+                            type="password"
+                            value={passwordData.currentPassword}
+                            onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                            placeholder="Enter current password"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="new-password">New Password</Label>
+                          <Input
+                            id="new-password"
+                            type="password"
+                            value={passwordData.newPassword}
+                            onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                            placeholder="Enter new password (min 8 characters)"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="confirm-password">Confirm New Password</Label>
+                          <Input
+                            id="confirm-password"
+                            type="password"
+                            value={passwordData.confirmPassword}
+                            onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                            placeholder="Confirm new password"
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setIsPasswordDialogOpen(false);
+                            setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                          }}
+                          disabled={isChangingPassword}
+                        >
+                          Cancel
+                        </Button>
+                        <Button onClick={handleChangePassword} disabled={isChangingPassword}>
+                          {isChangingPassword ? "Changing..." : "Change Password"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               )}
             </div>
           </CardHeader>
@@ -418,6 +554,9 @@ const hydrateFromLocalUser = (user: LocalUser) => {
             </CardContent>
           </Card>
         )}
+
+        {/* Favorites Section */}
+        <FavoritesSection />
       </div>
     </div>
   );

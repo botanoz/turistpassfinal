@@ -70,17 +70,20 @@ export default function AdminDashboard() {
       setError(null);
 
       const response = await fetch('/api/admin/dashboard/stats');
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error('Failed to fetch dashboard data');
+        const errorMessage = data.details || data.error || 'Failed to fetch dashboard data';
+        console.error('Dashboard API error:', errorMessage);
+        throw new Error(errorMessage);
       }
 
-      const data = await response.json();
       setDashboardData(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Dashboard fetch error:', err);
-      setError('Failed to load dashboard data');
-      toast.error('Failed to load dashboard data');
+      const errorMsg = err.message || 'Failed to load dashboard data';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsLoading(false);
     }

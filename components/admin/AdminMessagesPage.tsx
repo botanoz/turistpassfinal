@@ -36,6 +36,7 @@ import {
 import { getMessageTemplates, type MessageTemplate } from "@/lib/services/messageService";
 import { createAdminClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import AdminLayout from "./AdminLayout";
 
 export default function AdminMessagesPage() {
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
@@ -154,7 +155,8 @@ export default function AdminMessagesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <AdminLayout>
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold">Announcements & Notifications</h2>
@@ -446,6 +448,7 @@ export default function AdminMessagesPage() {
           )}
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </AdminLayout>
   );
 }

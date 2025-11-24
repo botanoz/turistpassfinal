@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, AwaitedReactNode, JSXElementConstructor, Key, ReactElement, ReactNode } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,27 +29,19 @@ import {
   Search, 
   X
 } from "lucide-react";
-import { 
-  placeCategories, 
-  places, 
-  CATEGORY_TO_PASS_MAP, 
-  getPlacesByPassAndCategory
+import {
+  placeCategories,
+  CATEGORY_TO_PASS_MAP
 } from "@/lib/mockData/placesData";
-
-// Available passes for tabs
-const PASSES = [
-  { id: "all", name: "All Places" },
-  { id: "food", name: "Food Pass" },
-  { id: "shopping", name: "Shopping Pass" },
-  { id: "sfPlus", name: "S&F Plus Pass" }
-];
+import { Loader2, Heart } from "lucide-react";
+import { toast } from "sonner";
 
 // Main Places Content Component
 function PlacesContent() {
   // Get search params for initial state - with safe access
   const searchParams = useSearchParams();
   const initialPass = searchParams?.get('pass') || "all";
-  
+
   // State
   const [activePass, setActivePass] = useState(initialPass);
   const [activeCategory, setActiveCategory] = useState("all");
@@ -57,9 +49,154 @@ function PlacesContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12; // Fixed number of items per page
   const categoryContainerRef = useRef<HTMLDivElement>(null);
-  
-  // All places data
-  const allPlaces = useMemo(() => places, []);
+
+  // Database state
+  const [passes, setPasses] = useState<any[]>([]);
+  const [businesses, setBusinesses] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+
+  // Fetch passes from database
+  useEffect(() => {
+    async function fetchPasses() {
+      try {
+        const response = await fetch('/api/passes/active');
+        const result = await response.json();
+
+        if (result.success) {
+          setPasses(result.passes || []);
+        }
+      } catch (error) {
+        console.error('Error fetching passes:', error);
+      }
+    }
+
+    fetchPasses();
+  }, []);
+
+  // Fetch businesses for selected pass
+  useEffect(() => {
+    async function fetchBusinesses() {
+      try {
+        setIsLoading(true);
+
+        if (activePass === "all") {
+          // Fetch all businesses from all active passes
+          const response = await fetch('/api/passes/active');
+          const result = await response.json();
+
+          if (result.success) {
+            // Extract all unique businesses from all passes
+            const allBusinesses = new Map();
+            result.passes?.forEach((pass: any) => {
+              pass.businesses?.forEach((pb: any) => {
+                if (pb.business && !allBusinesses.has(pb.business.id)) {
+                  allBusinesses.set(pb.business.id, {
+                    ...pb.business,
+                    passIds: [pass.id]
+                  });
+                } else if (pb.business && allBusinesses.has(pb.business.id)) {
+                  const existing = allBusinesses.get(pb.business.id);
+                  existing.passIds.push(pass.id);
+                }
+              });
+            });
+            setBusinesses(Array.from(allBusinesses.values()));
+          }
+        } else {
+          // Fetch businesses for specific pass
+          const selectedPass = passes.find(p => p.id === activePass);
+          if (selectedPass) {
+            const response = await fetch(`/api/passes/${selectedPass.id}/businesses`);
+            const result = await response.json();
+
+            if (result.success) {
+              const businessesWithPassId = result.businesses.map((b: any) => ({
+                ...b,
+                passIds: [selectedPass.id]
+              }));
+              setBusinesses(businessesWithPassId);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching businesses:', error);
+        toast.error('Failed to load businesses');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    if (passes.length > 0 || activePass === "all") {
+      fetchBusinesses();
+    }
+  }, [activePass, passes]);
+
+  // Fetch favorites
+  useEffect(() => {
+    async function fetchFavorites() {
+      try {
+        const response = await fetch('/api/customer/business-favorites');
+        const result = await response.json();
+
+        if (result.success) {
+          // Ensure the Set is typed as Set<string>
+          const favIds = new Set<string>(result.favorites.map((f: any) => String(f.business_id)));
+          setFavorites(favIds);
+        }
+      } catch (error) {
+        // User might not be logged in
+      }
+    }
+
+    fetchFavorites();
+  }, []);
+
+  // Create PASSES array from database
+  const PASSES = useMemo(() => {
+    const passTabs = [{ id: "all", name: "All Places" }];
+    passes.forEach(pass => {
+      passTabs.push({
+        id: pass.id,
+        name: pass.name
+      });
+    });
+    return passTabs;
+  }, [passes]);
+
+  // Convert database business to place format
+  const convertBusinessToPlace = (business: any) => {
+    return {
+      id: business.id,
+      name: business.name,
+      description: business.description || '',
+      shortDescription: business.description?.slice(0, 100) || '',
+      slug: business.id,
+      categoryId: business.category || 'restaurant',
+      passIds: business.passIds || [],
+      images: business.images ? business.images.map((url: string, idx: number) => ({
+        url,
+        alt: `${business.name} ${idx + 1}`,
+        type: 'gallery'
+      })) : [],
+      rating: business.rating || 0,
+      reviewCount: 0,
+      location: {
+        district: business.location?.district || business.location?.city || '',
+        address: business.location?.address || '',
+        city: business.location?.city || '',
+        coordinates: business.location?.coordinates || { lat: 0, lng: 0 }
+      },
+      openHours: business.opening_hours || {},
+      tags: business.tags || [],
+      priceRange: business.price_range || ''
+    };
+  };
+
+  // All places data from database
+  const allPlaces = useMemo(() => {
+    return businesses.map(convertBusinessToPlace);
+  }, [businesses]);
 
   // Reset active category when pass changes
   useEffect(() => {
@@ -86,21 +223,24 @@ function PlacesContent() {
 
   // Filter places based on all criteria
   const filteredPlaces = useMemo(() => {
-    // Önce pass ve kategori filtrelemesi yap
-    const baseFilteredPlaces = getPlacesByPassAndCategory(
-      activePass, 
-      activeCategory
-    );
-    
-    // Sonra arama terimini uygula
-    if (!searchTerm) return baseFilteredPlaces;
-    
-    return baseFilteredPlaces.filter(place => 
-      place.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      place.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      place.shortDescription.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [activePass, activeCategory, searchTerm]);
+    let filtered = allPlaces;
+
+    // Filter by category
+    if (activeCategory !== "all") {
+      filtered = filtered.filter(place => place.categoryId === activeCategory);
+    }
+
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter(place =>
+        place.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        place.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        place.shortDescription.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    return filtered;
+  }, [allPlaces, activeCategory, searchTerm]);
 
   // Get paginated places
   const paginatedPlaces = useMemo(() => {
@@ -127,6 +267,66 @@ function PlacesContent() {
     }
   };
 
+  // Toggle favorite
+  const handleToggleFavorite = async (e: React.MouseEvent, businessId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      const isFavorited = favorites.has(businessId);
+
+      if (isFavorited) {
+        const response = await fetch(`/api/customer/business-favorites?businessId=${businessId}`, {
+          method: 'DELETE'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          setFavorites(prev => {
+            const newFavorites = new Set<string>();
+            prev.forEach((id) => newFavorites.add(id));
+            newFavorites.delete(businessId);
+            return newFavorites;
+          });
+          toast.success('Removed from favorites');
+        }
+      } else {
+        const response = await fetch('/api/customer/business-favorites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ businessId })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          setFavorites(prev => {
+            const newFavorites = new Set<string>();
+            prev.forEach((id) => newFavorites.add(id));
+            newFavorites.add(businessId);
+            return newFavorites;
+          });
+          toast.success('Added to favorites');
+        } else if (result.error === 'Unauthorized') {
+          toast.error('Please login to add favorites');
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading places...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -141,21 +341,27 @@ function PlacesContent() {
           </p>
         </div>
 
-        {/* Pass Tabs - Always visible at the top */}
+        {/* Pass Tabs - Scrollable for multiple passes */}
         <div className="mb-6">
-          <Tabs 
-            defaultValue={activePass} 
+          <Tabs
+            defaultValue={activePass}
             value={activePass}
             onValueChange={setActivePass}
             className="w-full"
           >
-            <TabsList className="grid grid-cols-4 w-full">
-              {PASSES.map(pass => (
-                <TabsTrigger key={pass.id} value={pass.id}>
-                  {pass.name}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+            <div className="relative">
+              <TabsList className="inline-flex w-auto min-w-full overflow-x-auto scrollbar-hide">
+                {PASSES.map(pass => (
+                  <TabsTrigger
+                    key={pass.id}
+                    value={pass.id}
+                    className="flex-shrink-0 whitespace-nowrap px-6"
+                  >
+                    {pass.name}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
           </Tabs>
         </div>
 
@@ -271,13 +477,14 @@ function PlacesContent() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
           {paginatedPlaces.map((place) => {
             // Yer'in hangi pas'lere dahil olduğunu göster
-            const passNames = place.passIds?.map(passId => 
-              PASSES.find(p => p.id === passId)?.name.replace(' Pass', '')
+            const passNames = place.passIds?.map((passId: string) =>
+              PASSES.find(p => p.id === passId)?.name
             ).filter(Boolean) || [];
-            
+            const isFavorited = favorites.has(place.id);
+
             return (
-              <Link 
-                key={place.id} 
+              <Link
+                key={place.id}
                 href={`/places/${place.slug}`}
                 className="group block"
               >
@@ -291,19 +498,29 @@ function PlacesContent() {
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    
-                    <div className="absolute top-3 left-3">
+
+                    <div className="absolute top-3 left-3 flex gap-2">
                       <Badge variant="secondary" className="bg-primary text-primary-foreground">
                         {placeCategories.find(c => c.id === place.categoryId)?.name}
                       </Badge>
                     </div>
 
-                    {/* Pass Badge - Only show in "All Places" tab */}
+                    {/* Favorite Button */}
+                    <button
+                      onClick={(e) => handleToggleFavorite(e, place.id)}
+                      className="absolute top-3 right-3 bg-white/90 hover:bg-white rounded-full p-2 transition-colors z-10"
+                    >
+                      <Heart
+                        className={`h-4 w-4 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-600'}`}
+                      />
+                    </button>
+
+                    {/* Pass Badge - Show below favorite button if "All Places" */}
                     {activePass === "all" && passNames.length > 0 && (
-                      <div className="absolute top-3 right-3">
-                        <Badge 
-                          variant="outline" 
-                          className="bg-black/50 text-white border-none"
+                      <div className="absolute top-14 right-3">
+                        <Badge
+                          variant="outline"
+                          className="bg-black/50 text-white border-none text-xs"
                         >
                           {passNames[0]}
                         </Badge>
@@ -340,15 +557,15 @@ function PlacesContent() {
 
                     <div className="flex items-center justify-between">
                       <div className="flex flex-wrap gap-1">
-                        {place.tags?.slice(0, 2).map(tag => (
+                        {(place.tags?.slice(0, 2).filter(Boolean) || []).map((tag: any, idx: number) => (
                           <Badge 
-                            key={tag} 
+                            key={`${place.id}-tag-${idx}`} 
                             variant="outline" 
                             className="text-xs bg-accent/10 border-accent/30"
                           >
                             {tag}
                           </Badge>
-                        )) || []}
+                        ))}
                       </div>
                       <span className="text-sm font-medium text-primary">
                         {place.priceRange || ''}
