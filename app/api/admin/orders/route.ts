@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || 'all';
+    const paymentStatus = searchParams.get('paymentStatus') || 'all';
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = (page - 1) * limit;
@@ -39,22 +40,41 @@ export async function GET(request: NextRequest) {
         order_number,
         customer_id,
         status,
+        payment_status,
+        payment_method,
         total_amount,
         currency,
-        payment_method,
-        payment_status,
         created_at,
+        updated_at,
         completed_at,
+        refunded_at,
+        paid_at,
+        confirmed_at,
+        pass_delivered_at,
+        first_used_at,
+        cancelled_at,
         customer_profiles (
           first_name,
           last_name,
           email
+        ),
+        order_items (
+          id,
+          quantity,
+          unit_price,
+          total_price,
+          pass_name
         )
       `, { count: 'exact' });
 
     // Apply status filter
     if (status !== 'all') {
       query = query.eq('status', status);
+    }
+
+    // Apply payment status filter
+    if (paymentStatus !== 'all') {
+      query = query.eq('payment_status', paymentStatus);
     }
 
     // Apply pagination and sorting
@@ -69,47 +89,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });
     }
 
-    // Get order items for each order
-    const ordersWithItems = await Promise.all(
-      (orders || []).map(async (order: any) => {
-        const { data: items } = await supabase
-          .from('order_items')
-          .select('*')
-          .eq('order_id', order.id);
-
-        const customer = order.customer_profiles;
-        const customerName = customer
-          ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email
-          : 'Unknown';
-
-        // Get pass name from first item
-        const passName = items && items.length > 0 ? items[0].pass_name : 'Unknown Pass';
-
-        return {
-          id: order.order_number,
-          orderId: order.id,
-          customer: customerName,
-          customerEmail: customer?.email || '',
-          pass: passName,
-          amount: order.total_amount,
-          currency: order.currency || 'TRY',
-          date: order.created_at,
-          status: order.status,
-          payment_status: order.payment_status,
-          items: items || [],
-          itemCount: items?.length || 0
-        };
-      })
-    );
-
-    // Apply search filter (after fetching customer names)
+    // Apply search filter (with customer names)
     const filteredOrders = search
-      ? ordersWithItems.filter(order =>
-          order.id.toLowerCase().includes(search.toLowerCase()) ||
-          order.customer.toLowerCase().includes(search.toLowerCase()) ||
-          order.customerEmail.toLowerCase().includes(search.toLowerCase())
-        )
-      : ordersWithItems;
+      ? (orders || []).filter((order: any) => {
+          const customer = order.customer_profiles;
+          const customerName = customer
+            ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim()
+            : '';
+          const customerEmail = customer?.email || '';
+
+          return (
+            order.order_number.toLowerCase().includes(search.toLowerCase()) ||
+            customerName.toLowerCase().includes(search.toLowerCase()) ||
+            customerEmail.toLowerCase().includes(search.toLowerCase())
+          );
+        })
+      : (orders || []);
 
     // Get stats using the database function
     const { data: statsData, error: statsError } = await supabase

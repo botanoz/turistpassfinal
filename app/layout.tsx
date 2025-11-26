@@ -4,6 +4,7 @@ import ThemeClient from '@/components/ThemeClient';
 import { Toaster } from "@/components/ui/sonner";
 import type { Metadata } from "next";
 import ConditionalLayout from '@/components/ConditionalLayout';
+import { CurrencyProvider } from '@/hooks/useCurrency';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -21,10 +22,12 @@ export default function RootLayout({
     <html lang="tr" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
         <ThemeClient>
-          <ConditionalLayout>
-            {children}
-          </ConditionalLayout>
-          <Toaster />
+          <CurrencyProvider>
+            <ConditionalLayout>
+              {children}
+            </ConditionalLayout>
+            <Toaster />
+          </CurrencyProvider>
         </ThemeClient>
       </body>
     </html>

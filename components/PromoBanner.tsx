@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ShoppingBag, ArrowRight, X } from "lucide-react";
+import { ShoppingBag, ArrowRight, X, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 interface Campaign {
   id: string;
@@ -20,6 +21,7 @@ interface Campaign {
   banner_type: string;
   discount_type?: string;
   discount_value?: number;
+  discount_code?: string;
   end_date: string;
 }
 
@@ -28,6 +30,7 @@ export default function PromoBanner() {
   const [showDialog, setShowDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isBannerVisible, setIsBannerVisible] = useState(true);
+  const [codeCopied, setCodeCopied] = useState(false);
 
   useEffect(() => {
     fetchActiveCampaign();
@@ -69,6 +72,19 @@ export default function PromoBanner() {
     setIsBannerVisible(false);
   };
 
+  const copyDiscountCode = async () => {
+    if (campaign?.discount_code) {
+      try {
+        await navigator.clipboard.writeText(campaign.discount_code);
+        setCodeCopied(true);
+        toast.success('Discount code copied!');
+        setTimeout(() => setCodeCopied(false), 2000);
+      } catch (err) {
+        toast.error('Failed to copy code');
+      }
+    }
+  };
+
   // Don't render if no campaign or banner is hidden
   if (isLoading || !campaign || !isBannerVisible) {
     return null;
@@ -97,15 +113,22 @@ export default function PromoBanner() {
           {/* Empty div for layout */}
           <div className="hidden sm:block w-24" />
 
-          {/* Centered promotional text */}
+          {/* Centered promotional text with discount code */}
           <button
             onClick={() => setShowDialog(true)}
             className="flex items-center justify-center mx-auto hover:opacity-80 transition-opacity cursor-pointer group"
           >
             <ShoppingBag className={`h-5 w-5 ${iconColorClass} mr-2 animate-pulse-slow`} />
-            <p className="text-sm md:text-base font-medium">
-              {campaign.banner_text}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm md:text-base font-medium">
+                {campaign.banner_text}
+              </p>
+              {campaign.discount_code && (
+                <span className="px-3 py-1 bg-primary text-primary-foreground rounded-md text-xs md:text-sm font-mono font-bold tracking-wider shadow-sm border-2 border-primary/20 animate-pulse-slow">
+                  {campaign.discount_code}
+                </span>
+              )}
+            </div>
           </button>
 
           {/* View details button on the right */}
@@ -164,6 +187,40 @@ export default function PromoBanner() {
                   </div>
                   <ShoppingBag className="h-8 w-8 text-primary" />
                 </div>
+              </div>
+            )}
+
+            {/* Discount Code Section */}
+            {campaign.discount_code && (
+              <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 p-5 rounded-lg border-2 border-primary/30 shadow-md">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ShoppingBag className="h-4 w-4 text-primary" />
+                      <p className="text-sm font-semibold text-primary uppercase tracking-wide">Discount Code</p>
+                    </div>
+                    <div className="bg-white dark:bg-gray-900 px-4 py-3 rounded-md border-2 border-dashed border-primary/40">
+                      <p className="text-3xl font-mono font-bold tracking-widest text-center text-primary">
+                        {campaign.discount_code}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="default"
+                    size="icon"
+                    onClick={copyDiscountCode}
+                    className="h-12 w-12 bg-primary hover:bg-primary/90"
+                  >
+                    {codeCopied ? (
+                      <Check className="h-6 w-6" />
+                    ) : (
+                      <Copy className="h-6 w-6" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-3 text-center">
+                  {codeCopied ? '✓ Code copied to clipboard!' : 'Click the copy icon to use this code at checkout'}
+                </p>
               </div>
             )}
 

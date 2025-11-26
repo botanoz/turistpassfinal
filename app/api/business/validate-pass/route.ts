@@ -101,6 +101,9 @@ export async function POST(request: Request) {
     const discountedAmount = originalAmount
       ? originalAmount * (1 - (discountPercentage ?? 0) / 100)
       : null;
+    const savingsAmount = originalAmount && discountedAmount
+      ? originalAmount - discountedAmount
+      : null;
 
     // Record usage in pass_usage_history
     const { error: usageError } = await supabase
@@ -135,6 +138,25 @@ export async function POST(request: Request) {
       console.error('Error updating usage count:', updateError);
     }
 
+    // Log visit (use admin client to bypass RLS since business user inserts on behalf of customer)
+    try {
+      await supabaseAdmin
+        .from('venue_visits')
+        .insert({
+          customer_id: passData.customer_id,
+          business_id: businessId,
+          purchased_pass_id: passData.id,
+          status: 'completed',
+          visit_date: new Date().toISOString(),
+          discount_used: discountPercentage ?? 0,
+          discount_amount: savingsAmount ?? 0,
+          notes: validatedBy ? `Validated by ${validatedBy}` : null
+        });
+    } catch (visitError) {
+      console.error('Error logging visit:', visitError);
+      // Do not block validation response
+    }
+
     return NextResponse.json({
       success: true,
       valid: true,
@@ -150,9 +172,7 @@ export async function POST(request: Request) {
           percentage: discountPercentage,
           originalAmount,
           discountedAmount,
-          savings: originalAmount && discountedAmount
-            ? originalAmount - discountedAmount
-            : null
+          savings: savingsAmount
         }
       }
     });

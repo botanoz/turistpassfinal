@@ -28,6 +28,7 @@ const ContactForm = () => {
     name: "",
     email: "",
     phone: "",
+    subject: "",
     message: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,6 +36,7 @@ const ContactForm = () => {
   const [isRobotVerified, setIsRobotVerified] = useState(false);
   const [mathAnswer, setMathAnswer] = useState("");
   const [isMathCorrect, setIsMathCorrect] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Generate new math challenge
   const generateMathChallenge = () => {
@@ -56,7 +58,7 @@ const ContactForm = () => {
     setMathAnswer(value);
     const correctAnswer = mathChallenge.num1 + mathChallenge.num2;
     const userAnswer = parseInt(value);
-    
+
     if (userAnswer === correctAnswer) {
       setIsMathCorrect(true);
       setIsRobotVerified(true);
@@ -69,26 +71,50 @@ const ContactForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!isRobotVerified) {
       return;
     }
-    
+
     setIsSubmitting(true);
-    
-    // Simulate form submission
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setIsSubmitting(false);
-    setIsSubmitted(true);
-    
-    // Reset form after 3 seconds
-    setTimeout(() => {
-      setIsSubmitted(false);
-      setFormData({ name: "", email: "", phone: "", message: "" });
-      setIsRobotVerified(false);
-      generateMathChallenge();
-    }, 3000);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone || null,
+          subject: formData.subject || 'General Inquiry',
+          message: formData.message,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to send message');
+      }
+
+      setIsSubmitted(true);
+
+      // Reset form after 5 seconds
+      setTimeout(() => {
+        setIsSubmitted(false);
+        setFormData({ name: "", email: "", phone: "", subject: "", message: "" });
+        setIsRobotVerified(false);
+        generateMathChallenge();
+      }, 5000);
+    } catch (err: any) {
+      console.error('Error submitting contact form:', err);
+      setError(err.message || 'Failed to send message. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -119,6 +145,12 @@ const ContactForm = () => {
         </p>
       </CardHeader>
       <CardContent>
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Input
@@ -129,7 +161,7 @@ const ContactForm = () => {
               required
             />
           </div>
-          
+
           <div>
             <Input
               name="email"
@@ -148,6 +180,16 @@ const ContactForm = () => {
               value={formData.phone}
               onChange={handleChange}
               placeholder="Your phone number (optional)"
+            />
+          </div>
+
+          <div>
+            <Input
+              name="subject"
+              value={formData.subject}
+              onChange={handleChange}
+              placeholder="Subject"
+              required
             />
           </div>
 

@@ -273,7 +273,7 @@ export default function BusinessLoginPage() {
 
               <div className="text-center text-sm text-muted-foreground">
                 Need an account?{" "}
-                <Link href="/signup" className="text-primary hover:underline">
+                <Link href="/business/apply" className="text-primary hover:underline">
                   Apply now
                 </Link>
               </div>

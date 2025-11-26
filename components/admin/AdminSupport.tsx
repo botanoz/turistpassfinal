@@ -27,27 +27,40 @@ type AdminTicket = {
   subject: string;
   status: "open" | "in_progress" | "resolved";
   priority: "low" | "medium" | "high";
+  category?: "technical" | "business" | "customer";
   date: string;
   lastUpdate: string;
+  responseSlaMinutes?: number | null;
+  resolutionSlaMinutes?: number | null;
   responses: TicketResponse[];
 };
 
 export default function AdminSupport() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [tickets, setTickets] = useState<AdminTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<AdminTicket | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [slaStats, setSlaStats] = useState<{ avgResponseTime: number; avgResolutionTime: number } | null>(null);
 
   const loadTickets = useCallback(async (): Promise<AdminTicket[]> => {
     const params = new URLSearchParams();
     if (statusFilter !== "all") params.set("status", statusFilter);
+    if (categoryFilter !== "all") params.set("category", categoryFilter);
     if (searchQuery) params.set("search", searchQuery);
     const res = await fetch(`/api/admin/support?${params.toString()}`);
     const json = await res.json();
     if (!res.ok || !json.success) {
       throw new Error(json.error || "Failed to fetch support tickets");
+    }
+    // Update SLA stats if available
+    if (json.slaStats) {
+      setSlaStats({
+        avgResponseTime: json.slaStats.avgResponseTime || 0,
+        avgResolutionTime: json.slaStats.avgResolutionTime || 0,
+      });
     }
     return (json.tickets as any[]).map((t) => ({
       id: t.id as string,
@@ -56,8 +69,11 @@ export default function AdminSupport() {
       subject: t.subject as string,
       status: t.status as "open" | "in_progress" | "resolved",
       priority: t.priority as "low" | "medium" | "high",
+      category: t.category as "technical" | "business" | "customer" | undefined,
       date: t.date as string,
       lastUpdate: t.lastUpdate as string,
+      responseSlaMinutes: t.responseSlaMinutes,
+      resolutionSlaMinutes: t.resolutionSlaMinutes,
       responses:
         (t.responses as any[] | undefined)?.map((r) => ({
           id: r.id as string,
@@ -66,7 +82,7 @@ export default function AdminSupport() {
           createdAt: r.createdAt as string,
         })) ?? [],
     }));
-  }, [statusFilter, searchQuery]);
+  }, [statusFilter, categoryFilter, searchQuery]);
 
   const refreshTickets = useCallback(async () => {
     const latest = await loadTickets();
@@ -100,11 +116,22 @@ export default function AdminSupport() {
     return matchesSearch && matchesStatus;
   });
 
+  const formatSlaTime = (minutes: number) => {
+    if (minutes < 60) return `${Math.round(minutes)}m`;
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.round(minutes % 60);
+    return `${hours}h ${mins}m`;
+  };
+
   const stats = [
     { label: "Total Tickets", value: tickets.length },
     { label: "Open", value: tickets.filter(t => t.status === "open").length },
     { label: "In Progress", value: tickets.filter(t => t.status === "in_progress").length },
-    { label: "Resolved", value: tickets.filter(t => t.status === "resolved").length }
+    { label: "Resolved", value: tickets.filter(t => t.status === "resolved").length },
+    ...(slaStats ? [
+      { label: "Avg Response Time", value: formatSlaTime(slaStats.avgResponseTime), isTime: true },
+      { label: "Avg Resolution Time", value: formatSlaTime(slaStats.avgResolutionTime), isTime: true }
+    ] : [])
   ];
 
   const handleViewConversation = (ticket: AdminTicket) => {
@@ -125,12 +152,12 @@ export default function AdminSupport() {
           <p className="text-muted-foreground">Manage customer and business support requests</p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
           {stats.map((stat) => (
             <Card key={stat.label}>
               <CardContent className="pt-6">
                 <p className="text-sm text-muted-foreground">{stat.label}</p>
-                <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                <p className={`font-bold mt-2 ${(stat as any).isTime ? 'text-2xl' : 'text-3xl'}`}>{stat.value}</p>
               </CardContent>
             </Card>
           ))}
@@ -143,6 +170,18 @@ export default function AdminSupport() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input placeholder="Search tickets..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
               </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="technical">Technical</SelectItem>
+                  <SelectItem value="business">Business</SelectItem>
+                  <SelectItem value="customer">Customer</SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full sm:w-40">
                   <Filter className="h-4 w-4 mr-2" />
@@ -172,6 +211,18 @@ export default function AdminSupport() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <Badge variant="outline" className="font-mono text-xs">{ticket.id}</Badge>
+                        {ticket.category && (
+                          <Badge
+                            variant="outline"
+                            className={
+                              ticket.category === "technical" ? "bg-blue-500/10 text-blue-600 border-blue-300" :
+                              ticket.category === "business" ? "bg-purple-500/10 text-purple-600 border-purple-300" :
+                              "bg-green-500/10 text-green-600 border-green-300"
+                            }
+                          >
+                            {ticket.category}
+                          </Badge>
+                        )}
                         <Badge variant={ticket.status === "open" ? "default" : ticket.status === "in_progress" ? "secondary" : "outline"}>
                           {ticket.status === "open" && <Clock className="h-3 w-3 mr-1" />}
                           {ticket.status === "resolved" && <CheckCircle className="h-3 w-3 mr-1" />}
@@ -190,6 +241,18 @@ export default function AdminSupport() {
                           {ticket.responses.length} {ticket.responses.length === 1 ? "response" : "responses"}
                         </span>
                         <span>Date: {new Date(ticket.date).toLocaleDateString()}</span>
+                        {ticket.responseSlaMinutes !== null && ticket.responseSlaMinutes !== undefined && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Response: {formatSlaTime(ticket.responseSlaMinutes)}
+                          </span>
+                        )}
+                        {ticket.resolutionSlaMinutes !== null && ticket.resolutionSlaMinutes !== undefined && (
+                          <span className="flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3" />
+                            Resolution: {formatSlaTime(ticket.resolutionSlaMinutes)}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-2">

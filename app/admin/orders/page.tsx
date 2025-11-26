@@ -1,5 +1,5 @@
-import AdminOrders from "@/components/admin/AdminOrders";
+import AdminOrdersEnhanced from "@/components/admin/AdminOrdersEnhanced";
 
 export default function Page() {
-  return <AdminOrders />;
+  return <AdminOrdersEnhanced />;
 }

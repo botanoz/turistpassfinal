@@ -55,14 +55,14 @@ interface DiscountCode {
 }
 
 const statusFilters = [
-  { value: "all", label: "Tüm durumlar" },
-  { value: "active", label: "Aktif" },
-  { value: "inactive", label: "Pasif" },
-  { value: "expired", label: "Süresi dolmuş" },
+  { value: "all", label: "All status" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+  { value: "expired", label: "Expired" },
 ];
 
 const discountTypes = [
-  { value: "percentage", label: "Yüzde (%)" },
+  { value: "percentage", label: "Percentage (%)" },
   { value: "fixed_amount", label: "Sabit Tutar" },
 ];
 
@@ -124,7 +124,7 @@ export default function AdminDiscountCodes() {
       setDiscountCodes(data.discountCodes ?? []);
     } catch (error) {
       console.error("Failed to load discount codes:", error);
-      toast.error("İndirim kodları yüklenemedi");
+      toast.error("Failed to load discount codes");
     } finally {
       setIsLoading(false);
     }
@@ -208,12 +208,12 @@ export default function AdminDiscountCodes() {
       };
 
       if (!payload.code) {
-        toast.error("Kod alanı zorunludur");
+        toast.error("Code field is required");
         return;
       }
 
       if (!payload.discount_value || Number.isNaN(payload.discount_value)) {
-        toast.error("Geçerli bir indirim değeri girin");
+        toast.error("Enter a valid discount value");
         return;
       }
 
@@ -225,15 +225,15 @@ export default function AdminDiscountCodes() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error?.error || "İndirim kodu oluşturulamadı");
+        throw new Error(error?.error || "Failed to create discount code");
       }
 
-      toast.success("İndirim kodu oluşturuldu");
+      toast.success("Discount code created");
       handleDialogChange(false);
       fetchDiscountCodes();
     } catch (error) {
       console.error("Failed to create discount code:", error);
-      toast.error(error instanceof Error ? error.message : "İşlem başarısız");
+      toast.error(error instanceof Error ? error.message : "Operation failed");
     } finally {
       setIsSaving(false);
     }
@@ -244,9 +244,9 @@ export default function AdminDiscountCodes() {
       <div className="space-y-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">İndirim Kodları</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Discount Codes</h1>
             <p className="text-sm text-muted-foreground">
-              Aktif kampanyalar için indirim kodlarını yönetin.
+              Manage discount codes for active campaigns.
             </p>
           </div>
 
@@ -268,12 +268,12 @@ export default function AdminDiscountCodes() {
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
-                  Yeni İndirim Kodu
+                  New Discount Code
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Yeni İndirim Kodu Oluştur</DialogTitle>
+                  <DialogTitle>Create New Discount Code</DialogTitle>
                 </DialogHeader>
 
                 <form className="space-y-4" onSubmit={handleCreate}>
@@ -293,7 +293,7 @@ export default function AdminDiscountCodes() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="discount_type">İndirim Tipi</Label>
+                      <Label htmlFor="discount_type">Discount Type</Label>
                       <Select
                         value={formData.discount_type}
                         onValueChange={(value) =>
@@ -317,7 +317,7 @@ export default function AdminDiscountCodes() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="discount_value">İndirim Değeri</Label>
+                      <Label htmlFor="discount_value">Discount Value</Label>
                       <Input
                         id="discount_value"
                         type="number"
@@ -343,28 +343,28 @@ export default function AdminDiscountCodes() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="active">Aktif</SelectItem>
-                          <SelectItem value="inactive">Pasif</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="description">Açıklama</Label>
+                    <Label htmlFor="description">Description</Label>
                     <Textarea
                       id="description"
                       value={formData.description}
                       onChange={(event) =>
                         setFormData({ ...formData, description: event.target.value })
                       }
-                      placeholder="Yaz kampanyası hakkında kısa bilgi"
+                      placeholder="Brief information about summer campaign"
                     />
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-3">
                     <div className="space-y-2">
-                      <Label htmlFor="max_uses">Max Kullanım (opsiyonel)</Label>
+                      <Label htmlFor="max_uses">Max Uses (optional)</Label>
                       <Input
                         id="max_uses"
                         type="number"
@@ -373,12 +373,12 @@ export default function AdminDiscountCodes() {
                         onChange={(event) =>
                           setFormData({ ...formData, max_uses: event.target.value })
                         }
-                        placeholder="Sınırsız için boş bırak"
+                        placeholder="Leave empty for unlimited"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="max_uses_per_customer">Müşteri Başına</Label>
+                      <Label htmlFor="max_uses_per_customer">Per Customer</Label>
                       <Input
                         id="max_uses_per_customer"
                         type="number"
@@ -413,7 +413,7 @@ export default function AdminDiscountCodes() {
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="valid_from">Geçerlilik Başlangıcı</Label>
+                      <Label htmlFor="valid_from">Valid From</Label>
                       <Input
                         id="valid_from"
                         type="datetime-local"
@@ -426,7 +426,7 @@ export default function AdminDiscountCodes() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="valid_until">Geçerlilik Bitişi</Label>
+                      <Label htmlFor="valid_until">Valid Until</Label>
                       <Input
                         id="valid_until"
                         type="datetime-local"
@@ -445,11 +445,11 @@ export default function AdminDiscountCodes() {
                       variant="outline"
                       onClick={() => handleDialogChange(false)}
                     >
-                      İptal
+                      Cancel
                     </Button>
                     <Button type="submit" disabled={isSaving}>
                       {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Kaydet
+                      Save
                     </Button>
                   </DialogFooter>
                 </form>
@@ -469,7 +469,7 @@ export default function AdminDiscountCodes() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Aktif</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">Active</CardTitle>
             </CardHeader>
             <CardContent>
               <span className="text-2xl font-semibold">{stats.active}</span>
@@ -477,7 +477,7 @@ export default function AdminDiscountCodes() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Yakında bitecek</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">Expiring Soon</CardTitle>
             </CardHeader>
             <CardContent>
               <span className="text-2xl font-semibold">{stats.expiringSoon}</span>
@@ -485,7 +485,7 @@ export default function AdminDiscountCodes() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Süresi Dolmuş</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">Expired</CardTitle>
             </CardHeader>
             <CardContent>
               <span className="text-2xl font-semibold">{stats.expired}</span>
@@ -496,13 +496,13 @@ export default function AdminDiscountCodes() {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <CardTitle>İndirim Kodları Listesi</CardTitle>
+              <CardTitle>Discount Codes Listesi</CardTitle>
               <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                 <div className="relative w-full sm:max-w-xs">
                   <Search className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     className="pl-8"
-                    placeholder="Koda göre ara..."
+                    placeholder="Search by code..."
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                   />
@@ -533,9 +533,9 @@ export default function AdminDiscountCodes() {
                   <TableRow>
                     <TableHead>Kod</TableHead>
                     <TableHead>Kampanya</TableHead>
-                    <TableHead>İndirim</TableHead>
-                    <TableHead>Kullanım</TableHead>
-                    <TableHead>Geçerlilik</TableHead>
+                    <TableHead>Discount</TableHead>
+                    <TableHead>Usage</TableHead>
+                    <TableHead>Validity</TableHead>
                     <TableHead>Durum</TableHead>
                     <TableHead className="text-right">Min Tutar</TableHead>
                   </TableRow>
@@ -546,7 +546,7 @@ export default function AdminDiscountCodes() {
                       <TableCell colSpan={7}>
                         <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          İndirim kodları yükleniyor...
+                          Loading discount codes...
                         </div>
                       </TableCell>
                     </TableRow>
@@ -556,7 +556,7 @@ export default function AdminDiscountCodes() {
                     <TableRow>
                       <TableCell colSpan={7}>
                         <div className="py-6 text-center text-sm text-muted-foreground">
-                          Kayıt bulunamadı.
+                          No records found.
                         </div>
                       </TableCell>
                     </TableRow>
@@ -580,7 +580,7 @@ export default function AdminDiscountCodes() {
                               </span>
                             </div>
                           ) : (
-                            <span className="text-muted-foreground">Bağımsız</span>
+                            <span className="text-muted-foreground">Independent</span>
                           )}
                         </TableCell>
                         <TableCell>{getDiscountLabel(code)}</TableCell>
@@ -589,8 +589,8 @@ export default function AdminDiscountCodes() {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col text-sm">
-                            <span>Başlangıç: {formatDate(code.valid_from)}</span>
-                            <span>Bitiş: {formatDate(code.valid_until)}</span>
+                            <span>Start: {formatDate(code.valid_from)}</span>
+                            <span>End: {formatDate(code.valid_until)}</span>
                           </div>
                         </TableCell>
                         <TableCell>

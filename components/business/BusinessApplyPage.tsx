@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Building2,
@@ -13,10 +12,14 @@ import {
   MapPin,
   FileText,
   CheckCircle,
-  ArrowLeft
+  CheckCircle2,
+  ArrowLeft,
+  Lock,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import Link from "next/link";
-import { businessAuthService } from "@/lib/services/businessAuthService";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -24,29 +27,29 @@ export default function BusinessApplyPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     businessName: "",
     category: "",
     email: "",
+    password: "",
     phone: "",
     address: "",
     district: "",
-    description: "",
-    discount: ""
+    customDistrict: ""
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const categories = [
+    "Historical",
     "Museum",
     "Restaurant",
     "Cafe",
+    "Spa & Massage",
     "Shopping",
-    "Entertainment",
-    "Tour",
-    "Hotel",
-    "Spa & Wellness",
-    "Transportation",
-    "Other"
+    "Activity",
+    "Beauty",
+    "Auto Service"
   ];
 
   const districts = [
@@ -86,6 +89,12 @@ export default function BusinessApplyPage() {
       newErrors.email = "Please enter a valid email";
     }
 
+    if (!formData.password) {
+      newErrors.password = "Password is required";
+    } else if (formData.password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters";
+    }
+
     if (!formData.phone.trim()) {
       newErrors.phone = "Phone number is required";
     }
@@ -98,12 +107,8 @@ export default function BusinessApplyPage() {
       newErrors.district = "District is required";
     }
 
-    if (!formData.description.trim()) {
-      newErrors.description = "Business description is required";
-    }
-
-    if (!formData.discount.trim()) {
-      newErrors.discount = "Discount offer is required";
+    if (formData.district === "Other" && !formData.customDistrict.trim()) {
+      newErrors.customDistrict = "Please enter your district";
     }
 
     setErrors(newErrors);
@@ -117,38 +122,53 @@ export default function BusinessApplyPage() {
 
     setIsLoading(true);
 
-    const result = await businessAuthService.register({
-      name: formData.businessName,
-      email: formData.email,
-      categoryId: formData.category,
-      contact: {
-        phone: formData.phone,
-        email: formData.email
-      },
-      location: {
-        address: formData.address,
-        district: formData.district,
-        coordinates: { lat: 0, lng: 0 }
-      },
-      description: formData.description,
-      discount: formData.discount
-    });
+    try {
+      const finalDistrict = formData.district === "Other" ? formData.customDistrict : formData.district;
 
-    setIsLoading(false);
+      const response = await fetch('/api/business/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.businessName,
+          email: formData.email,
+          password: formData.password,
+          categoryId: formData.category,
+          contact: {
+            phone: formData.phone,
+            email: formData.email
+          },
+          location: {
+            address: formData.address,
+            district: finalDistrict,
+            coordinates: { lat: 0, lng: 0 }
+          }
+        })
+      });
 
-    if (result.success) {
-      setIsSuccess(true);
-      toast.success("Application submitted successfully!");
-    } else {
-      toast.error(result.error || "Application failed. Please try again.");
-      setErrors({ email: result.error || "Failed to submit application" });
+      const result = await response.json();
+
+      setIsLoading(false);
+
+      if (result.success) {
+        setIsSuccess(true);
+        toast.success("Application submitted successfully!");
+      } else {
+        toast.error(result.error || "Application failed. Please try again.");
+        setErrors({ email: result.error || "Failed to submit application" });
+      }
+    } catch (error: any) {
+      setIsLoading(false);
+      toast.error("Network error. Please try again.");
+      console.error('Registration error:', error);
     }
   };
 
   if (isSuccess) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 via-background to-primary/5 flex items-center justify-center p-4">
-        <Card className="max-w-2xl w-full">
+        <Card className="max-w-2xl w-full shadow-xl">
           <CardContent className="pt-12 pb-12 text-center space-y-6">
             <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
               <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
@@ -182,33 +202,75 @@ export default function BusinessApplyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-background to-primary/5 py-8 px-4">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-          </Button>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-background to-primary/5 flex items-center justify-center p-4">
+      <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
+        {/* Left Column - Benefits */}
+        <div className="hidden lg:block space-y-8">
           <div>
-            <h1 className="text-3xl font-bold">Become a Partner</h1>
-            <p className="text-muted-foreground">Join TuristPass and reach thousands of tourists</p>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-primary hover:opacity-80 transition-opacity"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="font-medium">Back to Home</span>
+            </Link>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-4xl font-bold mb-4">Become a Partner</h1>
+              <p className="text-xl text-muted-foreground">
+                Join TuristPass and reach thousands of tourists visiting Istanbul
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                <span className="text-muted-foreground">Reach thousands of tourists</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                <span className="text-muted-foreground">QR code validation system</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                <span className="text-muted-foreground">Business dashboard and analytics</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                <span className="text-muted-foreground">Marketing support and promotion</span>
+              </div>
+            </div>
+
+            <div className="relative h-64 rounded-lg overflow-hidden">
+              <Image
+                src="https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=600&h=400&fit=crop"
+                alt="Istanbul Business"
+                fill
+                className="object-cover"
+              />
+            </div>
           </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Partner Application Form</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Fill out the form below to apply. We&apos;ll review your application and get back to you within 2-3 business days.
-            </p>
-          </CardHeader>
+        {/* Right Column - Application Form */}
+        <div className="w-full max-w-md mx-auto lg:mx-0">
+          <Card className="shadow-xl">
+            <CardHeader className="text-center space-y-2">
+              <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                <Building2 className="h-6 w-6 text-primary" />
+              </div>
+              <CardTitle className="text-2xl">Partner Application</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Fill out the form to join TuristPass
+              </p>
+            </CardHeader>
 
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
+            <CardContent className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Business Name *</label>
+                  <label className="text-sm font-medium">Business Name</label>
                   <div className="relative">
                     <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -225,7 +287,7 @@ export default function BusinessApplyPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Category *</label>
+                  <label className="text-sm font-medium">Category</label>
                   <Select
                     value={formData.category}
                     onValueChange={(value) => {
@@ -246,11 +308,9 @@ export default function BusinessApplyPage() {
                     <p className="text-sm text-red-500">{errors.category}</p>
                   )}
                 </div>
-              </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Business Email *</label>
+                  <label className="text-sm font-medium">Email</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -268,7 +328,32 @@ export default function BusinessApplyPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Phone Number *</label>
+                  <label className="text-sm font-medium">Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      value={formData.password}
+                      onChange={handleChange}
+                      placeholder="Enter your password"
+                      className={`pl-10 pr-10 ${errors.password ? 'border-red-500' : ''}`}
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <p className="text-sm text-red-500">{errors.password}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Phone</label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -283,10 +368,9 @@ export default function BusinessApplyPage() {
                     <p className="text-sm text-red-500">{errors.phone}</p>
                   )}
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Address *</label>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Address</label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -302,82 +386,68 @@ export default function BusinessApplyPage() {
                 )}
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">District *</label>
-                <Select
-                  value={formData.district}
-                  onValueChange={(value) => {
-                    setFormData(prev => ({ ...prev, district: value }));
-                    if (errors.district) setErrors(prev => ({ ...prev, district: "" }));
-                  }}
-                >
-                  <SelectTrigger className={errors.district ? 'border-red-500' : ''}>
-                    <SelectValue placeholder="Select district" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {districts.map((dist) => (
-                      <SelectItem key={dist} value={dist}>{dist}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.district && (
-                  <p className="text-sm text-red-500">{errors.district}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Business Description *</label>
-                <Textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Tell us about your business, what makes it special..."
-                  rows={4}
-                  className={errors.description ? 'border-red-500' : ''}
-                />
-                {errors.description && (
-                  <p className="text-sm text-red-500">{errors.description}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Discount Offer for TuristPass Users *</label>
-                <Input
-                  name="discount"
-                  value={formData.discount}
-                  onChange={handleChange}
-                  placeholder="e.g., 20% off all menu items"
-                  className={errors.discount ? 'border-red-500' : ''}
-                />
-                {errors.discount && (
-                  <p className="text-sm text-red-500">{errors.discount}</p>
-                )}
-              </div>
-
-              <div className="flex gap-3">
-                <Button type="submit" className="flex-1" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <FileText className="h-4 w-4 mr-2" />
-                      Submit Application
-                    </>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">District</label>
+                  <Select
+                    value={formData.district}
+                    onValueChange={(value) => {
+                      setFormData(prev => ({ ...prev, district: value }));
+                      if (errors.district) setErrors(prev => ({ ...prev, district: "" }));
+                    }}
+                  >
+                    <SelectTrigger className={errors.district ? 'border-red-500' : ''}>
+                      <SelectValue placeholder="Select district" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {districts.map((dist) => (
+                        <SelectItem key={dist} value={dist}>{dist}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.district && (
+                    <p className="text-sm text-red-500">{errors.district}</p>
                   )}
+                </div>
+
+                {formData.district === "Other" && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Enter District Name</label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        name="customDistrict"
+                        value={formData.customDistrict}
+                        onChange={handleChange}
+                        placeholder="Enter your district"
+                        className={`pl-10 ${errors.customDistrict ? 'border-red-500' : ''}`}
+                      />
+                    </div>
+                    {errors.customDistrict && (
+                      <p className="text-sm text-red-500">{errors.customDistrict}</p>
+                    )}
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Submitting..." : "Submit Application"}
                 </Button>
-                <Button type="button" variant="outline" asChild>
-                  <Link href="/business/login">
-                    Already have an account?
-                  </Link>
-                </Button>
+              </form>
+
+              <div className="text-center text-sm text-muted-foreground">
+                Already have an account?{" "}
+                <Link href="/business/login" className="text-primary hover:underline">
+                  Sign in
+                </Link>
               </div>
-            </form>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
 }
+

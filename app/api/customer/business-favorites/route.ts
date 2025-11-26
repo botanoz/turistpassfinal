@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 // GET - Fetch customer's favorite businesses
+// NOTE: business_favorites table does not exist in database yet
+// Returning empty array for now to prevent errors
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -16,36 +18,11 @@ export async function GET() {
       }, { status: 401 });
     }
 
-    // Fetch favorites
-    const { data: favorites, error: favError } = await supabase
-      .from('business_favorites')
-      .select(`
-        id,
-        business_id,
-        created_at,
-        business:businesses(
-          id,
-          name,
-          description,
-          category,
-          location,
-          images,
-          rating,
-          contact_info,
-          opening_hours
-        )
-      `)
-      .eq('customer_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (favError) {
-      console.error('Error fetching business favorites:', favError);
-      throw favError;
-    }
-
+    // TODO: Create business_favorites table in database
+    // For now, return empty favorites
     return NextResponse.json({
       success: true,
-      favorites: favorites || []
+      favorites: []
     });
 
   } catch (error: any) {

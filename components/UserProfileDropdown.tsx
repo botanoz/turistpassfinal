@@ -17,6 +17,7 @@ import {
   LogOut,
   ChevronDown,
   Wallet,
+  Clock3,
   LayoutDashboard,
 } from "lucide-react";
 import Link from "next/link";
@@ -56,9 +57,10 @@ export default function UserProfileDropdown({
       : [
           { href: "/profile", label: "My Profile", icon: UserIcon },
           { href: "/my-passes", label: "My Passes", icon: Ticket },
+          { href: "/visit-history", label: "Visit History", icon: Clock3 },
           { href: "/favorites", label: "Favorites", icon: Heart },
           { href: "/messages", label: "Messages", icon: MessageSquare },
-          { href: "/savings", label: "My Savings", icon: Wallet },
+          { href: "/payments", label: "Payments & Billing", icon: Wallet },
         ];
 
   return (

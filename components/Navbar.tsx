@@ -21,6 +21,7 @@ import Link from "next/link";
 import { useTheme } from "next-themes";
 import { createClient } from "@/lib/supabase/client";
 import UserProfileDropdown from "./UserProfileDropdown";
+import { CurrencySelector } from "./currency/CurrencySelector";
 
 
 
@@ -207,6 +208,9 @@ export default function Navbar() {
             {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
 
+          {/* Currency Selector */}
+          <CurrencySelector variant="ghost" size="sm" />
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="gap-2">
@@ -328,6 +332,10 @@ export default function Navbar() {
                   {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                   {theme === "dark" ? "Light Theme" : "Dark Theme"}
                 </Button>
+
+                {/* Mobile Currency Selector */}
+                <CurrencySelector variant="outline" size="sm" className="w-full" />
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="w-full gap-2">

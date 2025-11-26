@@ -42,9 +42,14 @@ export async function GET() {
 
     const { data: tickets, error: ticketsError } = await supabase
       .from("support_tickets")
-      .select("id, subject, priority, status, created_at, updated_at")
+      .select(`
+        id, subject, priority, status, category,
+        created_at, updated_at,
+        first_response_at, resolved_at,
+        response_sla_minutes, resolution_sla_minutes
+      `)
       .eq("business_id", businessId)
-      .order("updated_at", { ascending: false });
+      .order("updated_at", { ascending: false});
 
     if (ticketsError) throw ticketsError;
 
@@ -79,8 +84,11 @@ export async function GET() {
           subject: t.subject,
           priority: t.priority,
           status: t.status,
+          category: t.category,
           createdAt: t.created_at,
           lastUpdate: lastResponseAt,
+          responseSlaMinutes: t.response_sla_minutes,
+          resolutionSlaMinutes: t.resolution_sla_minutes,
           responses: ticketResponses.map((r) => ({
             id: r.id,
             sender: r.sender,

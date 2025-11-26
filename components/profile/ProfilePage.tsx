@@ -28,7 +28,8 @@ import {
   Edit2,
   Save,
   X,
-  Key
+  Key,
+  Settings
 } from "lucide-react";
 import Link from "next/link";
 import type { User as LocalUser } from "@/lib/types/user";
@@ -206,7 +207,8 @@ const hydrateFromLocalUser = (user: LocalUser) => {
         body: JSON.stringify({
           first_name: formData.firstName,
           last_name: formData.lastName,
-          phone: formData.phone
+          phone: formData.phone,
+          email: formData.email
         })
       });
 
@@ -215,7 +217,8 @@ const hydrateFromLocalUser = (user: LocalUser) => {
         if (localUser) {
           const updateResult = await authService.updateProfile({
             firstName: formData.firstName,
-            lastName: formData.lastName
+            lastName: formData.lastName,
+            email: formData.email
           });
           if (updateResult.success && updateResult.user) {
             hydrateFromLocalUser(updateResult.user);
@@ -232,6 +235,9 @@ const hydrateFromLocalUser = (user: LocalUser) => {
 
       if (result.success && result.profile) {
         setProfile(result.profile);
+        if (result.emailChangePending) {
+          toast.info("Check your inbox to confirm the new email address.");
+        }
         toast.success("Profile updated successfully");
         setIsEditing(false);
       } else {
@@ -360,6 +366,12 @@ const hydrateFromLocalUser = (user: LocalUser) => {
               </div>
               {!isEditing && (
                 <div className="flex gap-2">
+                  <Link href="/profile/settings">
+                    <Button variant="outline">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Ayarlar
+                    </Button>
+                  </Link>
                   <Button onClick={handleEdit} variant="outline">
                     <Edit2 className="h-4 w-4 mr-2" />
                     Edit Profile

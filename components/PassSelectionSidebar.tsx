@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { X, Plus, Minus, ChevronLeft, ChevronRight, Star, MapPin } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { FormattedPrice } from "@/components/currency/FormattedPrice";
 
 interface PassOption {
   days: number;
@@ -350,7 +351,7 @@ export default function PassSelectionSidebar({
                   }`}
                 >
                   <p className="font-medium">{option.days} {option.days === 1 ? 'day' : 'days'}</p>
-                  <p className="text-sm font-semibold">${option.adultPrice}</p>
+                  <p className="text-sm font-semibold"><FormattedPrice price={option.adultPrice} /></p>
                 </button>
               ))}
             </div>
@@ -364,7 +365,7 @@ export default function PassSelectionSidebar({
             <div className="flex items-center justify-between p-3 border rounded-md">
               <div>
                 <p className="font-medium">Adult</p>
-                <p className="text-sm text-muted-foreground">${selectedOption.adultPrice} per person</p>
+                <p className="text-sm text-muted-foreground"><FormattedPrice price={selectedOption.adultPrice} /> per person</p>
               </div>
               <div className="flex items-center gap-3">
                 <button 
@@ -392,7 +393,7 @@ export default function PassSelectionSidebar({
             <div className="flex items-center justify-between p-3 border rounded-md">
               <div>
                 <p className="font-medium">Child (5-15)</p>
-                <p className="text-sm text-muted-foreground">${selectedOption.childPrice} per person</p>
+                <p className="text-sm text-muted-foreground"><FormattedPrice price={selectedOption.childPrice} /> per person</p>
               </div>
               <div className="flex items-center gap-3">
                 <button 
@@ -467,30 +468,30 @@ export default function PassSelectionSidebar({
               <div className="space-y-1 text-sm mb-3">
                 <div className="flex justify-between">
                   <span>Adult Passes ({adultCount})</span>
-                  <span>${(adultCount * selectedOption.adultPrice).toFixed(2)}</span>
+                  <span><FormattedPrice price={adultCount * selectedOption.adultPrice} /></span>
                 </div>
 
                 {childCount > 0 && (
                   <div className="flex justify-between">
                     <span>Child Passes ({childCount})</span>
-                    <span>${(childCount * selectedOption.childPrice).toFixed(2)}</span>
+                    <span><FormattedPrice price={childCount * selectedOption.childPrice} /></span>
                   </div>
                 )}
 
                 <div className="flex justify-between font-medium pt-2 border-t border-border/30 mt-2">
                   <span>Subtotal</span>
-                  <span>${subtotal.toFixed(2)}</span>
+                  <span><FormattedPrice price={subtotal} /></span>
                 </div>
 
                 {codeValidation?.valid && codeValidation.discountAmount ? (
                   <div className="flex justify-between text-green-600 dark:text-green-400">
                     <span>Discount Code</span>
-                    <span>-${codeValidation.discountAmount.toFixed(2)}</span>
+                    <span>-<FormattedPrice price={codeValidation.discountAmount} /></span>
                   </div>
                 ) : discount && discountAmount > 0 ? (
                   <div className="flex justify-between text-red-500">
                     <span>Discount ({discount.percentage}%)</span>
-                    <span>-${discountAmount.toFixed(2)}</span>
+                    <span>-<FormattedPrice price={discountAmount} /></span>
                   </div>
                 ) : null}
               </div>
@@ -521,7 +522,7 @@ export default function PassSelectionSidebar({
         <div className="sticky bottom-0 z-10 bg-background p-4 border-t">
           <div className="flex justify-between items-center mb-4">
             <span className="font-semibold">Total</span>
-            <span className="text-xl font-bold">${totalPrice.toFixed(2)}</span>
+            <span className="text-xl font-bold"><FormattedPrice price={totalPrice} /></span>
           </div>
           
           <Button 

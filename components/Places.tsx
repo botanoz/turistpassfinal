@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, AwaitedReactNode, JSXElementConstructor, Key, ReactElement, ReactNode } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -140,8 +140,10 @@ function PlacesContent() {
         const result = await response.json();
 
         if (result.success) {
-          // Ensure the Set is typed as Set<string>
-          const favIds = new Set<string>(result.favorites.map((f: any) => String(f.business_id)));
+          // Explicitly type the Set as Set<string> and ensure business_id is converted to string
+          const favIds = new Set<string>(
+            result.favorites.map((f: { business_id: string }) => String(f.business_id))
+          );
           setFavorites(favIds);
         }
       } catch (error) {
@@ -284,8 +286,7 @@ function PlacesContent() {
 
         if (result.success) {
           setFavorites(prev => {
-            const newFavorites = new Set<string>();
-            prev.forEach((id) => newFavorites.add(id));
+            const newFavorites = new Set(prev);
             newFavorites.delete(businessId);
             return newFavorites;
           });
@@ -299,10 +300,11 @@ function PlacesContent() {
         });
 
         const result = await response.json();
+
         if (result.success) {
+          // Use Array.from to avoid Set iteration issues with ES5 target
           setFavorites(prev => {
-            const newFavorites = new Set<string>();
-            prev.forEach((id) => newFavorites.add(id));
+            const newFavorites = new Set(Array.from(prev));
             newFavorites.add(businessId);
             return newFavorites;
           });
@@ -476,7 +478,7 @@ function PlacesContent() {
         {/* Places Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
           {paginatedPlaces.map((place) => {
-            // Yer'in hangi pas'lere dahil olduğunu göster
+            // Explicitly type passId as string in the map function
             const passNames = place.passIds?.map((passId: string) =>
               PASSES.find(p => p.id === passId)?.name
             ).filter(Boolean) || [];
@@ -557,15 +559,16 @@ function PlacesContent() {
 
                     <div className="flex items-center justify-between">
                       <div className="flex flex-wrap gap-1">
-                        {(place.tags?.slice(0, 2).filter(Boolean) || []).map((tag: any, idx: number) => (
+                        {/* Explicitly type tag as string in the map function */}
+                        {place.tags?.slice(0, 2).map((tag: string) => (
                           <Badge 
-                            key={`${place.id}-tag-${idx}`} 
+                            key={tag} 
                             variant="outline" 
                             className="text-xs bg-accent/10 border-accent/30"
                           >
                             {tag}
                           </Badge>
-                        ))}
+                        )) || []}
                       </div>
                       <span className="text-sm font-medium text-primary">
                         {place.priceRange || ''}

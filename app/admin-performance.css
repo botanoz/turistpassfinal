@@ -1,0 +1,198 @@
+/* ============================================
+ * CRITICAL PERFORMANCE OPTIMIZATIONS
+ * ============================================
+ * These CSS rules dramatically improve INP (Interaction to Next Paint)
+ * by reducing layout thrashing and enabling GPU acceleration
+ */
+
+/* Enable GPU acceleration for all interactive elements */
+.admin-sidebar,
+.admin-nav-link,
+.admin-notification-item {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Prevent layout thrashing on hover */
+.admin-nav-link {
+  /* Use transform instead of background color change for smoother transitions */
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.admin-nav-link:hover {
+  transform: translateX(2px);
+}
+
+/* CSS containment for better performance */
+.admin-sidebar-nav {
+  contain: layout style paint;
+}
+
+.admin-notification-list {
+  contain: layout style;
+}
+
+/* Optimize scrolling performance */
+.admin-scrollable {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* iOS smooth scrolling */
+  overscroll-behavior: contain; /* Prevent scroll chaining */
+}
+
+/* Reduce paint complexity for icons */
+.admin-icon {
+  will-change: opacity;
+  /* Prevent icon reflows */
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Optimize dropdown animations */
+.admin-dropdown-content {
+  /* Use transform for animations instead of top/left */
+  animation: slideDown 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Prevent layout shifts */
+.admin-avatar {
+  /* Fixed dimensions prevent layout shifts */
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+}
+
+/* Optimize badge rendering */
+.admin-notification-badge {
+  /* Use will-change for frequently updated content */
+  will-change: contents;
+  /* Prevent text reflow */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Reduce repaint areas */
+.admin-user-info {
+  /* Isolate repaints to this container */
+  isolation: isolate;
+}
+
+/* Optimize hover states with pseudo-elements */
+.admin-button-hover::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.admin-button-hover:hover::before {
+  opacity: 0.1;
+}
+
+/* Prevent text selection during rapid clicks */
+.admin-interactive {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Optimize mobile menu transitions */
+@media (max-width: 768px) {
+  .admin-mobile-sheet {
+    /* Hardware accelerate mobile transitions */
+    transform: translateZ(0);
+    will-change: transform;
+  }
+}
+
+/* Prevent flash of unstyled content */
+.admin-layout {
+  /* Ensure layout is ready before paint */
+  content-visibility: auto;
+}
+
+/* Optimize for dark mode transitions */
+@media (prefers-color-scheme: dark) {
+  * {
+    /* Prevent flicker during theme transitions */
+    transition: background-color 0.15s, color 0.15s;
+  }
+}
+
+/* Critical: Reduce layout complexity */
+.admin-nav-list {
+  /* Prevent layout recalculation on scroll */
+  position: relative;
+  /* Create stacking context */
+  z-index: 0;
+}
+
+/* Optimize notification rendering */
+.admin-notification-item {
+  /* Prevent layout shifts from long text */
+  overflow: hidden;
+  /* Create containing block */
+  position: relative;
+}
+
+/* Prevent button ripple effects from causing reflows */
+.admin-button {
+  /* Isolate button paint */
+  isolation: isolate;
+  /* Optimize click/tap */
+  touch-action: manipulation;
+}
+
+/* Optimize dropdown menu rendering */
+.admin-dropdown-menu {
+  /* Prevent menu from causing page reflow */
+  position: fixed;
+  /* Use layer for better compositing */
+  isolation: isolate;
+}
+
+/* Critical: Optimize main content area */
+.admin-main-content {
+  /* Enable smooth scrolling */
+  scroll-behavior: smooth;
+  /* Contain paint */
+  contain: layout style paint;
+  /* GPU acceleration */
+  transform: translateZ(0);
+}
+
+/* Optimize sheet/modal overlays */
+.admin-overlay {
+  /* Hardware accelerate overlay */
+  will-change: opacity;
+  /* Prevent overlay from triggering layout */
+  backface-visibility: hidden;
+}
+
+/* Reduce animation jank */
+@media (prefers-reduced-motion: no-preference) {
+  .admin-animated {
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* Optimize for high refresh rate displays */
+@media (min-resolution: 120dpi) {
+  .admin-smooth {
+    /* Enable subpixel antialiasing */
+    -webkit-font-smoothing: subpixel-antialiased;
+    -moz-osx-font-smoothing: auto;
+  }
+}

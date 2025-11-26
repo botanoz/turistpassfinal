@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get("status") || "all";
+    const category = searchParams.get("category") || "all";
     const search = searchParams.get("search") || "";
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "50", 10);
@@ -38,12 +39,22 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from("support_tickets")
-      .select(`id, subject, priority, status, created_at, updated_at, business:businesses(name)`)
+      .select(`
+        id, subject, priority, status, category,
+        created_at, updated_at,
+        first_response_at, resolved_at,
+        response_sla_minutes, resolution_sla_minutes,
+        business:businesses(name)
+      `)
       .order("updated_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (status !== "all") {
       query = query.eq("status", status);
+    }
+
+    if (category !== "all") {
+      query = query.eq("category", category);
     }
 
     if (search) {
@@ -68,8 +79,22 @@ export async function GET(request: NextRequest) {
       }, {});
     }
 
+    // Get SLA statistics
+    const { data: slaStatsData, error: slaError } = await supabase
+      .rpc('get_business_support_sla_stats', {
+        p_category: category !== "all" ? category : null,
+        p_priority: null,
+        p_days_back: 30
+      });
+
+    const slaStats = slaStatsData && slaStatsData.length > 0 ? {
+      avgResponseTime: Number(slaStatsData[0].avg_response_time_minutes) || 0,
+      avgResolutionTime: Number(slaStatsData[0].avg_resolution_time_minutes) || 0,
+    } : null;
+
     return NextResponse.json({
       success: true,
+      slaStats,
       tickets: (tickets ?? []).map((t) => {
         const ticketResponses = responsesByTicket[t.id] ?? [];
         const lastUpdate = ticketResponses.length > 0
@@ -85,10 +110,13 @@ export async function GET(request: NextRequest) {
           subject: t.subject,
           status: t.status,
           priority: t.priority,
+          category: t.category,
           date: t.created_at,
           lastUpdate,
           from: businessName ?? "Business",
           type: "business",
+          responseSlaMinutes: t.response_sla_minutes,
+          resolutionSlaMinutes: t.resolution_sla_minutes,
           responses: ticketResponses.map((r) => ({
             id: r.id,
             sender: r.sender,

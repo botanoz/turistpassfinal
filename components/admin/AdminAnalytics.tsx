@@ -201,7 +201,7 @@ export default function AdminAnalytics() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-96">
-          <div className="text-lg text-gray-500">Analiz verileri yükleniyor...</div>
+          <div className="text-lg text-gray-500">Loading analytics data...</div>
         </div>
       </AdminLayout>
     );
@@ -211,7 +211,7 @@ export default function AdminAnalytics() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-96">
-          <div className="text-lg text-gray-500">Veri bulunamadı</div>
+          <div className="text-lg text-gray-500">No data found</div>
         </div>
       </AdminLayout>
     );
@@ -224,7 +224,7 @@ export default function AdminAnalytics() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Analytics & Reports</h1>
-            <p className="text-gray-500 mt-1">Detaylı satış ve performans analizleri</p>
+            <p className="text-gray-500 mt-1">Detailed sales and performance analytics</p>
           </div>
 
           <div className="flex gap-2">
@@ -259,7 +259,7 @@ export default function AdminAnalytics() {
               onClick={() => setDateRange(days as 7 | 30 | 90 | 365)}
             >
               <Calendar className="h-4 w-4 mr-2" />
-              Son {days} Gün
+              Last {days} Days
             </Button>
           ))}
         </div>
@@ -268,7 +268,7 @@ export default function AdminAnalytics() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Toplam Gelir</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -284,14 +284,14 @@ export default function AdminAnalytics() {
                 <span className={analyticsData.salesAnalytics.revenueChange >= 0 ? 'text-green-500' : 'text-red-500'}>
                   {Math.abs(analyticsData.salesAnalytics.revenueChange).toFixed(1)}%
                 </span>
-                <span className="ml-1">önceki döneme göre</span>
+                <span className="ml-1">vs previous period</span>
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Toplam Sipariş</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
               <ShoppingCart className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -299,14 +299,14 @@ export default function AdminAnalytics() {
                 {formatNumber(analyticsData.salesAnalytics.totalOrders)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Ortalama: {formatCurrency(analyticsData.salesAnalytics.averageOrderValue)}
+                Average: {formatCurrency(analyticsData.salesAnalytics.averageOrderValue)}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Satılan Pass</CardTitle>
+              <CardTitle className="text-sm font-medium">Passes Sold</CardTitle>
               <CreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -314,14 +314,14 @@ export default function AdminAnalytics() {
                 {formatNumber(analyticsData.salesAnalytics.totalPassesSold)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Toplam pass satışı
+                Total pass sales
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Müşteriler</CardTitle>
+              <CardTitle className="text-sm font-medium">Customers</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -338,11 +338,11 @@ export default function AdminAnalytics() {
         {/* Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="overview">Genel Bakış</TabsTrigger>
-            <TabsTrigger value="revenue">Gelir Analizi</TabsTrigger>
-            <TabsTrigger value="passes">Pass Performansı</TabsTrigger>
-            <TabsTrigger value="businesses">İşletmeler</TabsTrigger>
-            <TabsTrigger value="customers">Müşteriler</TabsTrigger>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="revenue">Revenue Analizi</TabsTrigger>
+            <TabsTrigger value="passes">Pass Performance</TabsTrigger>
+            <TabsTrigger value="businesses">Businesses</TabsTrigger>
+            <TabsTrigger value="customers">Customers</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -351,8 +351,8 @@ export default function AdminAnalytics() {
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <div>
-                    <CardTitle>Gelir Trendi</CardTitle>
-                    <CardDescription>Son {dateRange} günlük gelir grafiği</CardDescription>
+                    <CardTitle>Revenue Trend</CardTitle>
+                    <CardDescription>Last {dateRange} days revenue chart</CardDescription>
                   </div>
                   <div className="flex gap-2">
                     {['day', 'week', 'month'].map((interval) => (
@@ -362,7 +362,7 @@ export default function AdminAnalytics() {
                         size="sm"
                         onClick={() => setChartInterval(interval as 'day' | 'week' | 'month')}
                       >
-                        {interval === 'day' ? 'Günlük' : interval === 'week' ? 'Haftalık' : 'Aylık'}
+                        {interval === 'day' ? 'Daily' : interval === 'week' ? 'Weekly' : 'Monthly'}
                       </Button>
                     ))}
                   </div>
@@ -376,12 +376,12 @@ export default function AdminAnalytics() {
                     <YAxis />
                     <Tooltip
                       formatter={(value: number, name: string) => {
-                        if (name === 'revenue') return [formatCurrency(value), 'Gelir'];
-                        return [value, 'Sipariş'];
+                        if (name === 'revenue') return [formatCurrency(value), 'Revenue'];
+                        return [value, 'Orders'];
                       }}
                     />
                     <Legend
-                      formatter={(value) => value === 'revenue' ? 'Gelir' : 'Sipariş Sayısı'}
+                      formatter={(value) => value === 'revenue' ? 'Revenue' : 'Order Count'}
                     />
                     <Line type="monotone" dataKey="revenue" stroke="#8884d8" strokeWidth={2} />
                     <Line type="monotone" dataKey="orders" stroke="#82ca9d" strokeWidth={2} />
@@ -394,8 +394,8 @@ export default function AdminAnalytics() {
               {/* Top Passes */}
               <Card>
                 <CardHeader>
-                  <CardTitle>En Çok Satan Pass'ler</CardTitle>
-                  <CardDescription>Satış performansına göre</CardDescription>
+                  <CardTitle>Top Selling Passes</CardTitle>
+                  <CardDescription>By sales performance</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -408,7 +408,7 @@ export default function AdminAnalytics() {
                           <div>
                             <p className="font-medium">{pass.pass_name}</p>
                             <p className="text-sm text-gray-500">
-                              {pass.total_sold} satış • Ort: {formatCurrency(pass.average_price)}
+                              {pass.total_sold} sales • Avg: {formatCurrency(pass.average_price)}
                             </p>
                           </div>
                         </div>
@@ -424,8 +424,8 @@ export default function AdminAnalytics() {
               {/* Top Businesses */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Popüler İşletmeler</CardTitle>
-                  <CardDescription>En çok pass'e dahil edilen</CardDescription>
+                  <CardTitle>Popular Businesses</CardTitle>
+                  <CardDescription>Most included in passes</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -455,8 +455,8 @@ export default function AdminAnalytics() {
           <TabsContent value="revenue" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Gelir Karşılaştırması</CardTitle>
-                <CardDescription>Periyodik gelir ve sipariş analizi</CardDescription>
+                <CardTitle>Revenue Comparison</CardTitle>
+                <CardDescription>Periodic revenue and order analysis</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={400}>
@@ -467,12 +467,12 @@ export default function AdminAnalytics() {
                     <YAxis yAxisId="right" orientation="right" />
                     <Tooltip
                       formatter={(value: number, name: string) => {
-                        if (name === 'revenue') return [formatCurrency(value), 'Gelir'];
-                        return [value, 'Sipariş'];
+                        if (name === 'revenue') return [formatCurrency(value), 'Revenue'];
+                        return [value, 'Orders'];
                       }}
                     />
                     <Legend
-                      formatter={(value) => value === 'revenue' ? 'Gelir (TRY)' : 'Sipariş Sayısı'}
+                      formatter={(value) => value === 'revenue' ? 'Revenue (TRY)' : 'Order Count'}
                     />
                     <Bar yAxisId="left" dataKey="revenue" fill="#8884d8" />
                     <Bar yAxisId="right" dataKey="orders" fill="#82ca9d" />
@@ -487,8 +487,8 @@ export default function AdminAnalytics() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Pass Kategori Dağılımı</CardTitle>
-                  <CardDescription>Kategorilere göre pass sayısı</CardDescription>
+                  <CardTitle>Pass Category Distribution</CardTitle>
+                  <CardDescription>Pass count by categories</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -517,8 +517,8 @@ export default function AdminAnalytics() {
                 <CardHeader>
                   <div className="flex justify-between items-center">
                     <div>
-                      <CardTitle>Tüm Pass'ler</CardTitle>
-                      <CardDescription>Performans detayları</CardDescription>
+                      <CardTitle>All Passes</CardTitle>
+                      <CardDescription>Performance details</CardDescription>
                     </div>
                     <Button
                       variant="outline"
@@ -536,11 +536,11 @@ export default function AdminAnalytics() {
                       <div key={pass.pass_id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                         <div>
                           <p className="font-medium">{pass.pass_name}</p>
-                          <p className="text-sm text-gray-500">{pass.total_sold} satış</p>
+                          <p className="text-sm text-gray-500">{pass.total_sold} sales</p>
                         </div>
                         <div className="text-right">
                           <p className="font-semibold">{formatCurrency(pass.total_revenue)}</p>
-                          <p className="text-sm text-gray-500">Ort: {formatCurrency(pass.average_price)}</p>
+                          <p className="text-sm text-gray-500">Avg: {formatCurrency(pass.average_price)}</p>
                         </div>
                       </div>
                     ))}
@@ -556,8 +556,8 @@ export default function AdminAnalytics() {
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <div>
-                    <CardTitle>İşletme Performansı</CardTitle>
-                    <CardDescription>Pass dahiliyetlerine göre sıralama</CardDescription>
+                    <CardTitle>Business Performance</CardTitle>
+                    <CardDescription>Ranked by pass inclusions</CardDescription>
                   </div>
                   <Button
                     variant="outline"
@@ -599,31 +599,31 @@ export default function AdminAnalytics() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Yeni Müşteriler</CardTitle>
+                  <CardTitle>New Customers</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-4xl font-bold text-green-600">
                     {formatNumber(analyticsData.customerInsights.newCustomers)}
                   </div>
-                  <p className="text-sm text-gray-500 mt-2">Son {dateRange} günde</p>
+                  <p className="text-sm text-gray-500 mt-2">Last {dateRange} days</p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Tekrar Eden Müşteriler</CardTitle>
+                  <CardTitle>Returning Customers</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-4xl font-bold text-blue-600">
                     {formatNumber(analyticsData.customerInsights.repeatCustomers)}
                   </div>
-                  <p className="text-sm text-gray-500 mt-2">Son {dateRange} günde</p>
+                  <p className="text-sm text-gray-500 mt-2">Last {dateRange} days</p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Tekrar Etme Oranı</CardTitle>
+                  <CardTitle>Repeat Rate</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-4xl font-bold text-purple-600">
@@ -632,15 +632,15 @@ export default function AdminAnalytics() {
                           (analyticsData.customerInsights.newCustomers + analyticsData.customerInsights.repeatCustomers)) * 100).toFixed(1)
                       : 0}%
                   </div>
-                  <p className="text-sm text-gray-500 mt-2">Müşteri sadakati</p>
+                  <p className="text-sm text-gray-500 mt-2">Customer loyalty</p>
                 </CardContent>
               </Card>
             </div>
 
             <Card>
               <CardHeader>
-                <CardTitle>En Değerli Müşteriler</CardTitle>
-                <CardDescription>Toplam harcamaya göre</CardDescription>
+                <CardTitle>Top Customers</CardTitle>
+                <CardDescription>By total spending</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -652,12 +652,12 @@ export default function AdminAnalytics() {
                         </div>
                         <div>
                           <p className="font-semibold">{customer.customer_name}</p>
-                          <p className="text-sm text-gray-500">{customer.order_count} sipariş</p>
+                          <p className="text-sm text-gray-500">{customer.order_count} orders</p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="text-xl font-bold">{formatCurrency(customer.total_spent)}</p>
-                        <p className="text-sm text-gray-500">Toplam harcama</p>
+                        <p className="text-sm text-gray-500">Total spending</p>
                       </div>
                     </div>
                   ))}

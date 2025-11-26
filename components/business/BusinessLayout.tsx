@@ -128,8 +128,8 @@ export default function BusinessLayout({ children }: BusinessLayoutProps) {
   });
 
   const fetchAccount = useCallback(async () => {
-    // Login sayfasında API çağrısı yapma
-    if (pathname === "/business/login") {
+    // Login ve Apply sayfalarında API çağrısı yapma
+    if (pathname === "/business/login" || pathname === "/business/apply") {
       setState({
         loading: false,
         account: null,
@@ -184,7 +184,7 @@ export default function BusinessLayout({ children }: BusinessLayoutProps) {
   }, [fetchAccount]);
 
   const fetchNotifications = useCallback(async () => {
-    if (pathname === "/business/login") return;
+    if (pathname === "/business/login" || pathname === "/business/apply") return;
     setNotificationsState((prev) => ({ ...prev, loading: true }));
     try {
       const res = await fetch("/api/business/notifications");
@@ -200,7 +200,7 @@ export default function BusinessLayout({ children }: BusinessLayoutProps) {
   }, [pathname]);
 
   useEffect(() => {
-    if (state.loading || pathname === "/business/login") return;
+    if (state.loading || pathname === "/business/login" || pathname === "/business/apply") return;
     fetchNotifications();
   }, [state.loading, pathname, fetchNotifications]);
 
@@ -285,8 +285,8 @@ export default function BusinessLayout({ children }: BusinessLayoutProps) {
     ],
   );
 
-  // Login sayfasında sadece children'ı render et, layout gösterme
-  if (pathname === "/business/login") {
+  // Login ve Apply sayfalarında sadece children'ı render et, layout gösterme
+  if (pathname === "/business/login" || pathname === "/business/apply") {
     return <>{children}</>;
   }
 

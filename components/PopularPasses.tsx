@@ -11,6 +11,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Pass as DatabasePass } from "@/lib/services/passService";
 import { toast } from "sonner";
+import { FormattedPrice } from "@/components/currency/FormattedPrice";
 
 interface PassSelection {
   passType: string;
@@ -220,8 +221,7 @@ export default function PopularPasses() {
         const result = await response.json();
 
         if (result.success) {
-          // Ensure the Set is strongly typed as Set<string>
-          const favIds = new Set<string>(result.favorites.map((f: any) => String(f.passId)));
+          const favIds = new Set<string>(result.favorites.map((f: any) => f.passId));
           setFavorites(favIds);
         }
       } catch (error) {
@@ -275,7 +275,11 @@ export default function PopularPasses() {
         const result = await response.json();
 
         if (result.success) {
-          setFavorites(prev => new Set(Array.from(prev).concat(passId)));
+          setFavorites(prev => {
+            const newFavorites = new Set(prev);
+            newFavorites.add(passId);
+            return newFavorites;
+          });
           toast.success('Added to favorites');
         } else if (result.error === 'Unauthorized') {
           toast.error('Please login to add favorites');
@@ -470,13 +474,12 @@ export default function PopularPasses() {
                   <p className="text-sm text-muted-foreground mb-4">{pass.description}</p>
 
                   <div className="flex items-baseline gap-1">
-                    <span className="text-lg text-muted-foreground">$</span>
-                    <span className="text-4xl font-bold text-primary">{pass.price}</span>
+                    <span className="text-4xl font-bold text-primary"><FormattedPrice price={pass.price} /></span>
                     <div className="ml-2 flex items-center">
                       {pass.wasPrice && (
                         <>
                           <span className="text-sm line-through text-muted-foreground mr-2">
-                            ${pass.wasPrice}
+                            <FormattedPrice price={pass.wasPrice} />
                           </span>
                           <span className="text-xs font-medium bg-red-100 text-red-600 px-2 py-0.5 rounded">
                             SAVE {Math.round(((pass.wasPrice - pass.price) / pass.wasPrice) * 100)}%

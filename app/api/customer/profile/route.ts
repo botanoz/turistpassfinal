@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 // GET customer profile
 export async function GET() {
@@ -87,18 +87,69 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json();
-    const { first_name, last_name, phone, avatar_url } = body;
+    const { first_name, last_name, phone, avatar_url, email } = body;
+
+    let emailChangePending = false;
+
+    const normalizedEmail = typeof email === 'string' ? email.trim() : undefined;
+    const currentEmail = user.email || '';
+
+    if (normalizedEmail && normalizedEmail.toLowerCase() !== currentEmail.toLowerCase()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(normalizedEmail)) {
+        return NextResponse.json({
+          success: false,
+          error: 'Please enter a valid email address'
+        }, { status: 400 });
+      }
+
+      const { error: emailError, data: emailResult } = await supabase.auth.updateUser({ email: normalizedEmail });
+
+      if (emailError) {
+        console.error('Error updating auth email:', emailError);
+
+        try {
+          const adminClient = createAdminClient();
+          const { error: adminEmailError } = await adminClient.auth.admin.updateUserById(user.id, {
+            email: normalizedEmail,
+            email_confirm: false
+          });
+
+          if (adminEmailError) {
+            console.error('Admin email update failed:', adminEmailError);
+            return NextResponse.json({
+              success: false,
+              error: adminEmailError.message || emailError.message || 'Failed to update email'
+            }, { status: 400 });
+          }
+        } catch (adminErr: any) {
+          console.error('Service role email update error:', adminErr);
+          return NextResponse.json({
+            success: false,
+            error: emailError.message || 'Failed to update email'
+          }, { status: 400 });
+        }
+      } else {
+        emailChangePending = !!emailResult?.user && emailResult.user.email?.toLowerCase() !== normalizedEmail.toLowerCase();
+      }
+    }
 
     // Update customer profile
+    const updatePayload: Record<string, any> = {
+      first_name,
+      last_name,
+      phone,
+      avatar_url,
+      updated_at: new Date().toISOString()
+    };
+
+    if (normalizedEmail) {
+      updatePayload.email = normalizedEmail;
+    }
+
     const { data: profile, error: updateError } = await supabase
       .from('customer_profiles')
-      .update({
-        first_name,
-        last_name,
-        phone,
-        avatar_url,
-        updated_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', user.id)
       .select()
       .single();
@@ -111,6 +162,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({
       success: true,
       message: 'Profile updated successfully',
+      emailChangePending,
       profile
     });
 
