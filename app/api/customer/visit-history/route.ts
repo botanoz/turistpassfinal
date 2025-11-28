@@ -1,15 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-// RPC return type
-interface VisitSummary {
-  total_visits: number;
-  unique_venues: number;
-  total_savings: number;
-  favorite_category: string | null;
-  last_visit_date: string | null;
-}
-
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -43,7 +34,7 @@ export async function GET() {
           image_url,
           address
         ),
-        purchased_passes!venue_visits_purchased_pass_id_fkey(
+        purchased_passes!venue_visits_pass_id_fkey(
           id,
           pass_name,
           pass_type
@@ -95,20 +86,21 @@ export async function GET() {
     let summary = fallbackSummary;
 
     const { data: summaryData, error: summaryError } = await supabase
-  .rpc('get_customer_visit_summary', { customer_uuid: user.id })
-  .single() as { data: VisitSummary | null; error: any };
+      .rpc('get_customer_visit_summary', { customer_uuid: user.id })
+      .single();
 
-if (summaryError) {
-  console.warn('Visit summary RPC failed, using fallback:', summaryError.message);
-} else if (summaryData) {
-  summary = {
-    totalVisits: summaryData.total_visits ?? fallbackSummary.totalVisits,
-    uniqueVenues: summaryData.unique_venues ?? fallbackSummary.uniqueVenues,
-    totalSavings: Number(summaryData.total_savings ?? fallbackSummary.totalSavings),
-    favoriteCategory: summaryData.favorite_category ?? fallbackSummary.favoriteCategory,
-    lastVisitDate: summaryData.last_visit_date ?? fallbackSummary.lastVisitDate
-  };
-}
+    if (summaryError) {
+      console.warn('Visit summary RPC failed, using fallback:', summaryError.message);
+    } else if (summaryData) {
+      const data = summaryData as any;
+      summary = {
+        totalVisits: data.total_visits ?? fallbackSummary.totalVisits,
+        uniqueVenues: data.unique_venues ?? fallbackSummary.uniqueVenues,
+        totalSavings: Number(data.total_savings ?? fallbackSummary.totalSavings),
+        favoriteCategory: data.favorite_category ?? fallbackSummary.favoriteCategory,
+        lastVisitDate: data.last_visit_date ?? fallbackSummary.lastVisitDate
+      };
+    }
 
     return NextResponse.json({
       success: true,

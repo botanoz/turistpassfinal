@@ -39,7 +39,8 @@ import {
   AlertTriangle,
   Megaphone,
   Tag,
-  DollarSign
+  DollarSign,
+  FileText,
 } from "lucide-react";
 
 type Notification = {
@@ -145,6 +146,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.prefetch('/admin/dashboard');
     router.prefetch('/admin/customers');
     router.prefetch('/admin/businesses');
+    router.prefetch('/admin/business-subscriptions');
+    router.prefetch('/admin/invoicing');
     router.prefetch('/admin/orders');
     router.prefetch('/admin/passes');
     router.prefetch('/admin/support');
@@ -166,6 +169,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard, permission: null },
     { name: "Customers", href: "/admin/customers", icon: Users, permission: "customers" as const },
     { name: "Businesses", href: "/admin/businesses", icon: Building2, permission: "businesses" as const },
+    { name: "Business Subscriptions", href: "/admin/business-subscriptions", icon: CreditCard, permission: "businesses" as const },
+    { name: "Invoicing & Payments", href: "/admin/invoicing", icon: FileText, permission: "businesses" as const },
     { name: "Passes", href: "/admin/passes", icon: CreditCard, permission: "passes" as const },
     { name: "Orders", href: "/admin/orders", icon: ShoppingCart, permission: "orders" as const },
     { name: "Campaigns & Codes", href: "/admin/campaigns", icon: Megaphone, permission: "settings" as const },

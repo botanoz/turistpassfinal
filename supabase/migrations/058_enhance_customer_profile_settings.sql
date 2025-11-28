@@ -286,7 +286,7 @@ CREATE OR REPLACE FUNCTION get_profile_activity(customer_uuid UUID, limit_count 
 RETURNS TABLE (
   activity_type TEXT,
   description TEXT,
-  activity_timestamp TIMESTAMPTZ,
+  timestamp TIMESTAMPTZ,
   metadata JSONB
 ) AS $$
 BEGIN
@@ -294,7 +294,7 @@ BEGIN
   SELECT
     'profile_change'::TEXT as activity_type,
     'Changed ' || field_changed as description,
-    created_at as activity_timestamp,
+    created_at as timestamp,
     json_build_object(
       'field', field_changed,
       'change_type', change_type

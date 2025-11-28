@@ -140,10 +140,7 @@ function PlacesContent() {
         const result = await response.json();
 
         if (result.success) {
-          // Explicitly type the Set as Set<string> and ensure business_id is converted to string
-          const favIds = new Set<string>(
-            result.favorites.map((f: { business_id: string }) => String(f.business_id))
-          );
+          const favIds = new Set<string>(result.favorites.map((f: any) => f.business_id));
           setFavorites(favIds);
         }
       } catch (error) {
@@ -302,9 +299,8 @@ function PlacesContent() {
         const result = await response.json();
 
         if (result.success) {
-          // Use Array.from to avoid Set iteration issues with ES5 target
           setFavorites(prev => {
-            const newFavorites = new Set(Array.from(prev));
+            const newFavorites = new Set(prev);
             newFavorites.add(businessId);
             return newFavorites;
           });
@@ -478,7 +474,7 @@ function PlacesContent() {
         {/* Places Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
           {paginatedPlaces.map((place) => {
-            // Explicitly type passId as string in the map function
+            // Yer'in hangi pas'lere dahil olduğunu göster
             const passNames = place.passIds?.map((passId: string) =>
               PASSES.find(p => p.id === passId)?.name
             ).filter(Boolean) || [];
@@ -559,11 +555,10 @@ function PlacesContent() {
 
                     <div className="flex items-center justify-between">
                       <div className="flex flex-wrap gap-1">
-                        {/* Explicitly type tag as string in the map function */}
                         {place.tags?.slice(0, 2).map((tag: string) => (
-                          <Badge 
-                            key={tag} 
-                            variant="outline" 
+                          <Badge
+                            key={tag}
+                            variant="outline"
                             className="text-xs bg-accent/10 border-accent/30"
                           >
                             {tag}

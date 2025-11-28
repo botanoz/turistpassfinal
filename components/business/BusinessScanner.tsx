@@ -17,6 +17,7 @@ import {
   User,
   Percent,
   Receipt,
+  Tag,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,6 +39,19 @@ type ValidationResult = {
       savings: number | null;
     };
   };
+  campaign?: {
+    id: string;
+    title: string;
+    campaignType: string;
+    discountType: string;
+    discountValue: number;
+    discountApplied: {
+      percentage: number;
+      originalAmount: number | null;
+      discountedAmount: number | null;
+      savings: number;
+    };
+  };
 };
 
 export default function BusinessScanner() {
@@ -46,7 +60,7 @@ export default function BusinessScanner() {
   const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [isValidating, setIsValidating] = useState(false);
-  const [validationType, setValidationType] = useState<"qr_code" | "pin_code">("qr_code");
+  const [validationType, setValidationType] = useState<"qr_code" | "pin_code" | "promo_code">("qr_code");
   const [result, setResult] = useState<ValidationResult | null>(null);
 
   const handleValidate = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -122,10 +136,10 @@ export default function BusinessScanner() {
         <CardContent>
           <Tabs
             value={validationType}
-            onValueChange={(value) => setValidationType(value as "qr_code" | "pin_code")}
+            onValueChange={(value) => setValidationType(value as "qr_code" | "pin_code" | "promo_code")}
             className="w-full"
           >
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="qr_code">
                 <QrCode className="h-4 w-4 mr-2" />
                 QR Code
@@ -133,6 +147,10 @@ export default function BusinessScanner() {
               <TabsTrigger value="pin_code">
                 <Key className="h-4 w-4 mr-2" />
                 PIN Code
+              </TabsTrigger>
+              <TabsTrigger value="promo_code">
+                <Tag className="h-4 w-4 mr-2" />
+                Promo Code
               </TabsTrigger>
             </TabsList>
 
@@ -150,16 +168,38 @@ export default function BusinessScanner() {
                 Customers can display their 6 digit PIN if scanning unavailable.
               </p>
             </TabsContent>
+
+            <TabsContent value="promo_code" className="space-y-4">
+              <div className="p-4 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg border border-orange-200 flex flex-col items-center gap-4">
+                <Tag className="h-16 w-16 text-orange-600" />
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-orange-900 mb-1">
+                    Campaign Promo Code
+                  </p>
+                  <p className="text-xs text-orange-700">
+                    Enter the promo code from your active campaigns
+                  </p>
+                </div>
+              </div>
+            </TabsContent>
           </Tabs>
 
           <form onSubmit={handleValidate} className="mt-6 space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">QR / PIN Code</label>
+              <label className="text-sm font-medium">
+                {validationType === "promo_code" ? "Promo Code" : "QR / PIN Code"}
+              </label>
               <Input
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder={validationType === "pin_code" ? "e.g., TP1234AB" : "Scan code value"}
-                className="font-mono"
+                placeholder={
+                  validationType === "pin_code"
+                    ? "e.g., TP1234AB"
+                    : validationType === "promo_code"
+                    ? "e.g., SUMMER20"
+                    : "Scan code value"
+                }
+                className="font-mono uppercase"
               />
             </div>
 
@@ -238,6 +278,43 @@ export default function BusinessScanner() {
                     {new Date().toLocaleString()}
                   </p>
                 </div>
+
+                {result.campaign && (
+                  <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg p-4 border border-orange-200">
+                    <div className="flex items-start gap-3 mb-3">
+                      <Tag className="h-6 w-6 text-orange-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-semibold text-orange-900">{result.campaign.title}</h4>
+                        <p className="text-xs text-orange-700 capitalize">
+                          {result.campaign.campaignType.replace('_', ' ')} • {result.campaign.discountType.replace('_', ' ')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2 text-sm">
+                      <div className="space-y-1">
+                        <p className="flex items-center gap-2">
+                          <Percent className="h-4 w-4 text-orange-600" />
+                          <span className="font-medium">Discount: {result.campaign.discountApplied.percentage.toFixed(1)}%</span>
+                        </p>
+                        {result.campaign.discountApplied.originalAmount && (
+                          <p className="text-orange-700">
+                            Original: ₺{result.campaign.discountApplied.originalAmount.toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        {result.campaign.discountApplied.discountedAmount !== null && (
+                          <p className="font-semibold text-green-700">
+                            Final: ₺{result.campaign.discountApplied.discountedAmount.toFixed(2)}
+                          </p>
+                        )}
+                        <p className="text-green-700">
+                          Saved: ₺{result.campaign.discountApplied.savings.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {result.pass && (
                   <div className="grid gap-4 md:grid-cols-2">

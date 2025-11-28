@@ -10,17 +10,25 @@
 -- =====================================================
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  account_type TEXT;
 BEGIN
-  -- Create customer profile for new user
-  INSERT INTO public.customer_profiles (id, email, first_name, last_name, status)
-  VALUES (
-    NEW.id,
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'first_name', ''),
-    COALESCE(NEW.raw_user_meta_data->>'last_name', ''),
-    'active'
-  )
-  ON CONFLICT (id) DO NOTHING;
+  -- Get account type from user metadata
+  account_type := COALESCE(NEW.raw_user_meta_data->>'account_type', 'customer');
+
+  -- Only create customer profile if account_type is 'customer' or not specified
+  -- Business accounts and admin accounts are handled separately
+  IF account_type = 'customer' OR account_type IS NULL THEN
+    INSERT INTO public.customer_profiles (id, email, first_name, last_name, status)
+    VALUES (
+      NEW.id,
+      NEW.email,
+      COALESCE(NEW.raw_user_meta_data->>'first_name', ''),
+      COALESCE(NEW.raw_user_meta_data->>'last_name', ''),
+      'active'
+    )
+    ON CONFLICT (id) DO NOTHING;
+  END IF;
 
   RETURN NEW;
 END;

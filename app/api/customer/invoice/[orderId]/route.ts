@@ -6,6 +6,7 @@ export async function GET(
   { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
+    const { orderId } = await params;
     const supabase = await createClient();
 
     // Check authentication
@@ -18,7 +19,6 @@ export async function GET(
     }
 
     const customerId = session.user.id;
-    const { orderId } = await params;
 
     // Get order with customer and items
     const { data: order, error: orderError } = await supabase

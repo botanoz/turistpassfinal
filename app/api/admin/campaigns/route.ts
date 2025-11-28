@@ -32,10 +32,42 @@ export async function GET(request: NextRequest) {
     // Get query parameters for filtering
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get("status");
+    const type = searchParams.get("type"); // 'platform' or 'business'
     const limit = parseInt(searchParams.get("limit") || "50");
     const offset = parseInt(searchParams.get("offset") || "0");
 
-    // Build query
+    // If type is business, get business campaigns
+    if (type === 'business') {
+      let query = supabase
+        .from("business_campaigns")
+        .select(`
+          *,
+          businesses!business_campaigns_business_id_fkey(name, email)
+        `)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (status && status !== "all") {
+        query = query.eq("status", status);
+      }
+
+      const { data: campaigns, error: campaignsError } = await query;
+
+      if (campaignsError) {
+        console.error("Error fetching business campaigns:", campaignsError);
+        return NextResponse.json(
+          { success: false, error: "Failed to fetch campaigns" },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        campaigns: campaigns || []
+      });
+    }
+
+    // Otherwise, get platform campaigns (default behavior)
     let query = supabase
       .from("campaigns")
       .select("*, created_by_profile:admin_profiles!created_by(email)", {

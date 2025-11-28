@@ -43,20 +43,9 @@ BEGIN
   END IF;
 END $$;
 
--- 2) Backfill business_id from venue_id where possible (only if venue_id exists)
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND table_name = 'venue_visits'
-      AND column_name = 'venue_id'
-  ) THEN
-    UPDATE venue_visits
-    SET business_id = venue_id
-    WHERE business_id IS NULL AND venue_id IS NOT NULL;
-  END IF;
-END $$;
+-- 2) Backfill business_id from venue_id where possible
+-- SKIPPED: venue_id column was already renamed to business_id in migration 010
+-- No backfill needed as the column already contains the correct data
 
 -- 3) Refresh FK: drop old venue FK, add business FK
 DO $$
@@ -81,13 +70,7 @@ END $$;
 -- 4) Index on business_id
 CREATE INDEX IF NOT EXISTS idx_venue_visits_business ON venue_visits(business_id);
 
--- 5) Drop existing functions before recreating
-DROP FUNCTION IF EXISTS get_customer_visit_history(UUID, INTEGER);
-DROP FUNCTION IF EXISTS get_venue_visit_stats(UUID);
-DROP FUNCTION IF EXISTS get_customer_visit_summary(UUID);
-DROP FUNCTION IF EXISTS get_popular_venues(INTEGER);
-
--- 6) Update helper functions to use businesses but keep names/return fields
+-- 5) Update helper functions to use businesses but keep names/return fields
 CREATE OR REPLACE FUNCTION get_customer_visit_history(customer_uuid UUID, limit_count INTEGER DEFAULT 50)
 RETURNS TABLE (
   visit_id UUID,
@@ -210,7 +193,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 7) Comments
+-- 6) Comments
 COMMENT ON TABLE venue_visits IS 'Track customer visits to partner businesses with ratings and savings';
 COMMENT ON FUNCTION get_venue_visit_stats IS 'Get visit statistics for a specific business';
 COMMENT ON FUNCTION get_popular_venues IS 'Get most popular businesses based on visit count and ratings';

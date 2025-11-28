@@ -207,9 +207,9 @@ function CurrencySettingsContent() {
                     <Badge variant="default">Default</Badge>
                   )}
                   {currency.is_active ? (
-                    <Badge variant="default" className="bg-green-500">Aktif</Badge>
+                    <Badge variant="default" className="bg-green-500">Active</Badge>
                   ) : (
-                    <Badge variant="secondary">Pasif</Badge>
+                    <Badge variant="secondary">Inactive</Badge>
                   )}
                 </div>
               </div>

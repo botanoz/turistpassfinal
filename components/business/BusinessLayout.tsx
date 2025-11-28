@@ -24,6 +24,9 @@ import {
   X,
   Star,
   Lock,
+  Megaphone,
+  CreditCard,
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -207,6 +210,9 @@ export default function BusinessLayout({ children }: BusinessLayoutProps) {
   // Prefetch sık kullanılan sayfalar (algısal hız artışı)
   useEffect(() => {
     router.prefetch('/business/dashboard');
+    router.prefetch('/business/campaigns');
+    router.prefetch('/business/analytics');
+    router.prefetch('/business/subscription');
     router.prefetch('/business/profile');
     router.prefetch('/business/history');
     router.prefetch('/business/scanner');
@@ -327,6 +333,9 @@ export default function BusinessLayout({ children }: BusinessLayoutProps) {
   const navigation = [
     { name: "Dashboard", href: "/business/dashboard", icon: LayoutDashboard },
     { name: "Scanner", href: "/business/scanner", icon: QrCode },
+    { name: "Campaigns", href: "/business/campaigns", icon: Megaphone },
+    { name: "Analytics", href: "/business/analytics", icon: BarChart3 },
+    { name: "Subscription", href: "/business/subscription", icon: CreditCard },
     { name: "History", href: "/business/history", icon: History },
     { name: "My Venue", href: "/business/profile", icon: Store },
     { name: "Reviews", href: "/business/reviews", icon: Star },

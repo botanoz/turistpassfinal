@@ -144,7 +144,7 @@ function PlaceDetailContent({ slug }: { slug: string }) {
   // Menü fotoğrafını bul
   const menuImage = useMemo(() => {
     if (!place?.images || place.images.length === 0) return undefined;
-    return place.images.find((img: { type: string; }) => img && img.type === 'menu');
+    return place.images.find((img: any) => img && img.type === 'menu');
   }, [place?.images]);
 
   // Pass satın alma işleyicisi

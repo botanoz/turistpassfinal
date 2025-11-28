@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       identifier,
-      validationType, // 'qr_code' or 'pin_code'
+      validationType, // 'qr_code', 'pin_code', or 'promo_code'
       validatedBy,
       originalAmount,
       notes
@@ -46,11 +46,111 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    // Validate using PostgreSQL function with actual business_id
+    // Check if this is a campaign promo code
+    if (validationType === 'promo_code' || identifier.length <= 20) {
+      // Try to find a campaign with this promo code
+      const supabaseAdmin = createAdminClient();
+      const { data: campaign, error: campaignError } = await supabaseAdmin
+        .from('business_campaigns')
+        .select('*')
+        .eq('business_id', businessId)
+        .eq('promo_code', identifier.toUpperCase())
+        .eq('status', 'active')
+        .gte('end_date', new Date().toISOString())
+        .lte('start_date', new Date().toISOString())
+        .maybeSingle();
+
+      if (campaign) {
+        // Valid campaign found! Calculate discount
+        let discountPercentage = 0;
+        let discountAmount = 0;
+
+        if (campaign.discount_type === 'percentage') {
+          discountPercentage = campaign.discount_value;
+          if (originalAmount) {
+            discountAmount = (originalAmount * discountPercentage) / 100;
+            // Apply maximum discount limit if set
+            if (campaign.maximum_discount_amount && discountAmount > campaign.maximum_discount_amount) {
+              discountAmount = campaign.maximum_discount_amount;
+              discountPercentage = (discountAmount / originalAmount) * 100;
+            }
+          }
+        } else if (campaign.discount_type === 'fixed_amount') {
+          discountAmount = campaign.discount_value;
+          if (originalAmount) {
+            discountPercentage = (discountAmount / originalAmount) * 100;
+          }
+        }
+
+        const discountedAmount = originalAmount ? originalAmount - discountAmount : null;
+
+        // Check campaign limits
+        const { data: redemptions } = await supabaseAdmin
+          .from('campaign_redemptions')
+          .select('id')
+          .eq('campaign_id', campaign.id);
+
+        const totalRedemptions = redemptions?.length || 0;
+
+        if (campaign.max_redemptions && totalRedemptions >= campaign.max_redemptions) {
+          return NextResponse.json({
+            success: false,
+            valid: false,
+            message: 'Campaign redemption limit reached'
+          });
+        }
+
+        // Check minimum purchase amount
+        if (originalAmount && campaign.minimum_purchase_amount && originalAmount < campaign.minimum_purchase_amount) {
+          return NextResponse.json({
+            success: false,
+            valid: false,
+            message: `Minimum purchase amount is ₺${campaign.minimum_purchase_amount}`
+          });
+        }
+
+        // Record campaign redemption
+        const { error: redemptionError } = await supabaseAdmin
+          .from('campaign_redemptions')
+          .insert({
+            campaign_id: campaign.id,
+            business_id: businessId,
+            redeemed_at: new Date().toISOString(),
+            original_amount: originalAmount,
+            discount_amount: discountAmount,
+            notes
+          });
+
+        if (redemptionError) {
+          console.error('Error recording campaign redemption:', redemptionError);
+        }
+
+        return NextResponse.json({
+          success: true,
+          valid: true,
+          message: `Campaign "${campaign.title}" applied successfully!`,
+          campaign: {
+            id: campaign.id,
+            title: campaign.title,
+            campaignType: campaign.campaign_type,
+            discountType: campaign.discount_type,
+            discountValue: campaign.discount_value,
+            discountApplied: {
+              percentage: discountPercentage,
+              originalAmount,
+              discountedAmount,
+              savings: discountAmount
+            }
+          }
+        });
+      }
+    }
+
+    // If not a promo code or campaign not found, try regular pass validation
     const { data: validationResult, error: validateError } = await supabase
       .rpc('validate_pass', {
         p_identifier: identifier,
-        p_validation_type: validationType,
+        p_validation_type: validationType === 'promo_code' ? 'pin_code' : validationType,
         p_business_id: businessId
       });
 
@@ -65,7 +165,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: false,
         valid: false,
-        message: result?.message || 'Pass validation failed'
+        message: result?.message || 'Invalid code. Please check and try again.'
       });
     }
 

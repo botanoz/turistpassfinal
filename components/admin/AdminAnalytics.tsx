@@ -88,25 +88,85 @@ interface AnalyticsData {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
+type DateRangeOption = 'this_week' | 'this_month' | 'last_month' | 'last_3_months' | 'last_7_days' | 'last_30_days' | 'last_90_days' | 'last_365_days';
+
+const DATE_RANGE_OPTIONS: { value: DateRangeOption; label: string }[] = [
+  { value: 'last_7_days', label: 'Last 7 Days' },
+  { value: 'this_week', label: 'This Week' },
+  { value: 'last_30_days', label: 'Last 30 Days' },
+  { value: 'this_month', label: 'This Month' },
+  { value: 'last_month', label: 'Last Month' },
+  { value: 'last_3_months', label: 'Last 3 Months' },
+  { value: 'last_90_days', label: 'Last 90 Days' },
+  { value: 'last_365_days', label: 'Last Year' },
+];
+
 export default function AdminAnalytics() {
-  const [dateRange, setDateRange] = useState<7 | 30 | 90 | 365>(30);
+  const [dateRangeOption, setDateRangeOption] = useState<DateRangeOption>('last_30_days');
   const [chartInterval, setChartInterval] = useState<'day' | 'week' | 'month'>('day');
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [revenueChartData, setRevenueChartData] = useState<RevenueDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
+  const getDateRange = (option: DateRangeOption): { startDate: Date; endDate: Date } => {
+    const endDate = new Date();
+    const startDate = new Date();
+
+    switch (option) {
+      case 'this_week':
+        // Start from Monday of current week
+        const day = startDate.getDay();
+        const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
+        startDate.setDate(diff);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'this_month':
+        startDate.setDate(1);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'last_month':
+        startDate.setMonth(startDate.getMonth() - 1);
+        startDate.setDate(1);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setDate(0); // Last day of previous month
+        endDate.setHours(23, 59, 59, 999);
+        break;
+      case 'last_3_months':
+        startDate.setMonth(startDate.getMonth() - 3);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'last_7_days':
+        startDate.setDate(endDate.getDate() - 7);
+        break;
+      case 'last_30_days':
+        startDate.setDate(endDate.getDate() - 30);
+        break;
+      case 'last_90_days':
+        startDate.setDate(endDate.getDate() - 90);
+        break;
+      case 'last_365_days':
+        startDate.setDate(endDate.getDate() - 365);
+        break;
+    }
+
+    return { startDate, endDate };
+  };
+
+  const getDateRangeLabel = (option: DateRangeOption): string => {
+    const found = DATE_RANGE_OPTIONS.find(opt => opt.value === option);
+    return found ? found.label : 'selected period';
+  };
+
   useEffect(() => {
     fetchAnalytics();
     fetchRevenueChart();
-  }, [dateRange, chartInterval]);
+  }, [dateRangeOption, chartInterval]);
 
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(endDate.getDate() - dateRange);
+      const { startDate, endDate } = getDateRange(dateRangeOption);
 
       const response = await fetch(
         `/api/admin/analytics?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`
@@ -142,9 +202,7 @@ export default function AdminAnalytics() {
 
   const fetchRevenueChart = async () => {
     try {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(endDate.getDate() - dateRange);
+      const { startDate, endDate } = getDateRange(dateRangeOption);
 
       const response = await fetch(
         `/api/admin/analytics/revenue-chart?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}&interval=${chartInterval}`
@@ -162,9 +220,7 @@ export default function AdminAnalytics() {
   const handleExport = async (format: 'csv' | 'json', type: 'sales' | 'passes' | 'businesses') => {
     setExporting(true);
     try {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(endDate.getDate() - dateRange);
+      const { startDate, endDate } = getDateRange(dateRangeOption);
 
       const response = await fetch(
         `/api/admin/analytics/export?format=${format}&type=${type}&start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`
@@ -250,16 +306,16 @@ export default function AdminAnalytics() {
         </div>
 
         {/* Date Range Selector */}
-        <div className="flex gap-2">
-          {[7, 30, 90, 365].map((days) => (
+        <div className="flex gap-2 flex-wrap">
+          {DATE_RANGE_OPTIONS.map((option) => (
             <Button
-              key={days}
-              variant={dateRange === days ? 'default' : 'outline'}
+              key={option.value}
+              variant={dateRangeOption === option.value ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setDateRange(days as 7 | 30 | 90 | 365)}
+              onClick={() => setDateRangeOption(option.value)}
             >
               <Calendar className="h-4 w-4 mr-2" />
-              Last {days} Days
+              {option.label}
             </Button>
           ))}
         </div>
@@ -329,7 +385,7 @@ export default function AdminAnalytics() {
                 {formatNumber(analyticsData.customerInsights.newCustomers + analyticsData.customerInsights.repeatCustomers)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {analyticsData.customerInsights.newCustomers} yeni, {analyticsData.customerInsights.repeatCustomers} tekrar eden
+                {analyticsData.customerInsights.newCustomers} new, {analyticsData.customerInsights.repeatCustomers} returning
               </p>
             </CardContent>
           </Card>
@@ -339,7 +395,7 @@ export default function AdminAnalytics() {
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="revenue">Revenue Analizi</TabsTrigger>
+            <TabsTrigger value="revenue">Revenue Analysis</TabsTrigger>
             <TabsTrigger value="passes">Pass Performance</TabsTrigger>
             <TabsTrigger value="businesses">Businesses</TabsTrigger>
             <TabsTrigger value="customers">Customers</TabsTrigger>
@@ -352,7 +408,7 @@ export default function AdminAnalytics() {
                 <div className="flex justify-between items-center">
                   <div>
                     <CardTitle>Revenue Trend</CardTitle>
-                    <CardDescription>Last {dateRange} days revenue chart</CardDescription>
+                    <CardDescription>{getDateRangeLabel(dateRangeOption)} revenue chart</CardDescription>
                   </div>
                   <div className="flex gap-2">
                     {['day', 'week', 'month'].map((interval) => (
@@ -605,7 +661,7 @@ export default function AdminAnalytics() {
                   <div className="text-4xl font-bold text-green-600">
                     {formatNumber(analyticsData.customerInsights.newCustomers)}
                   </div>
-                  <p className="text-sm text-gray-500 mt-2">Last {dateRange} days</p>
+                  <p className="text-sm text-gray-500 mt-2">{getDateRangeLabel(dateRangeOption)}</p>
                 </CardContent>
               </Card>
 
@@ -617,7 +673,7 @@ export default function AdminAnalytics() {
                   <div className="text-4xl font-bold text-blue-600">
                     {formatNumber(analyticsData.customerInsights.repeatCustomers)}
                   </div>
-                  <p className="text-sm text-gray-500 mt-2">Last {dateRange} days</p>
+                  <p className="text-sm text-gray-500 mt-2">{getDateRangeLabel(dateRangeOption)}</p>
                 </CardContent>
               </Card>
 
