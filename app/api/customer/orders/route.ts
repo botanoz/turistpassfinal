@@ -20,15 +20,25 @@ export async function GET(request: NextRequest) {
     const { data: orders, error } = await supabase
       .from('orders')
       .select(`
-        *,
+        id,
+        order_number,
+        status,
+        total_amount,
+        subtotal,
+        discount_amount,
+        currency,
+        payment_method,
+        payment_status,
+        created_at,
+        completed_at,
         order_items (
           id,
           pass_id,
+          pass_name,
+          pass_type,
           quantity,
           unit_price,
-          subtotal,
-          adult_quantity,
-          child_quantity,
+          total_price,
           passes (
             id,
             name,
@@ -42,8 +52,13 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching orders:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       return NextResponse.json(
-        { success: false, error: 'Failed to fetch orders' },
+        {
+          success: false,
+          error: 'Failed to fetch orders',
+          details: error.message || error.hint || 'Unknown error'
+        },
         { status: 500 }
       );
     }

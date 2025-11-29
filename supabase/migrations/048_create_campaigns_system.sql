@@ -139,6 +139,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Drop trigger if exists to avoid "already exists" error
+DROP TRIGGER IF EXISTS campaigns_updated_at_trigger ON campaigns;
+
 CREATE TRIGGER campaigns_updated_at_trigger
   BEFORE UPDATE ON campaigns
   FOR EACH ROW
@@ -152,6 +155,9 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Drop trigger if exists to avoid "already exists" error
+DROP TRIGGER IF EXISTS discount_codes_updated_at_trigger ON discount_codes;
 
 CREATE TRIGGER discount_codes_updated_at_trigger
   BEFORE UPDATE ON discount_codes
@@ -169,6 +175,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Drop trigger if exists to avoid "already exists" error
+DROP TRIGGER IF EXISTS increment_usage_trigger ON discount_code_usage;
+
 CREATE TRIGGER increment_usage_trigger
   AFTER INSERT ON discount_code_usage
   FOR EACH ROW
@@ -184,6 +193,9 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Drop trigger if exists to avoid "already exists" error
+DROP TRIGGER IF EXISTS auto_expire_campaigns_trigger ON campaigns;
 
 CREATE TRIGGER auto_expire_campaigns_trigger
   BEFORE UPDATE ON campaigns
@@ -341,6 +353,9 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function to validate discount code
+-- Drop existing function to avoid signature conflicts
+DROP FUNCTION IF EXISTS validate_discount_code(TEXT, UUID, NUMERIC, UUID);
+
 CREATE OR REPLACE FUNCTION validate_discount_code(
   p_code TEXT,
   p_customer_id UUID,

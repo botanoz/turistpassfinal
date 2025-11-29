@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
     const customerId = user?.id || null;
 
     // Call the validation function
+    console.log("Validating discount code:", { code, customerId, subtotal, pass_id });
     const { data, error } = await supabase.rpc("validate_discount_code", {
       p_code: code,
       p_customer_id: customerId,
@@ -34,18 +35,28 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("Error validating discount code:", error);
+      console.error("Error details:", JSON.stringify(error, null, 2));
       return NextResponse.json(
-        { error: "Failed to validate discount code" },
+        {
+          error: "Failed to validate discount code",
+          details: error.message || error.hint || "Database function error"
+        },
         { status: 500 }
       );
     }
+
+    console.log("Discount validation result:", data);
 
     // The function returns an array with one result
     const result = data && data.length > 0 ? data[0] : null;
 
     if (!result) {
+      console.error("No result returned from validate_discount_code function");
       return NextResponse.json(
-        { error: "Failed to validate discount code" },
+        {
+          error: "Failed to validate discount code",
+          details: "Function returned no data. Check if validate_discount_code exists in database."
+        },
         { status: 500 }
       );
     }

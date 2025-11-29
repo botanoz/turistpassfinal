@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Save, RefreshCw, DollarSign, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, Save, RefreshCw, DollarSign, AlertCircle, CheckCircle2, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Currency {
@@ -22,6 +22,7 @@ interface Currency {
   symbol_position: string;
   is_active: boolean;
   is_default: boolean;
+  is_admin_display: boolean;
   last_updated: string;
 }
 
@@ -50,8 +51,8 @@ function CurrencySettingsContent() {
     } catch (error) {
       console.error('Error fetching currencies:', error);
       toast({
-        title: 'Hata',
-        description: 'Error loading exchange rates.',
+        title: 'Error',
+        description: 'Failed to load exchange rates.',
         variant: 'destructive',
       });
     } finally {
@@ -70,6 +71,7 @@ function CurrencySettingsContent() {
           exchange_rate: currency.exchange_rate,
           is_active: currency.is_active,
           is_default: currency.is_default,
+          is_admin_display: currency.is_admin_display,
         }),
       });
 
@@ -87,8 +89,8 @@ function CurrencySettingsContent() {
     } catch (error) {
       console.error('Error updating currency:', error);
       toast({
-        title: 'Hata',
-        description: 'Error updating exchange rate.',
+        title: 'Error',
+        description: 'Failed to update exchange rate.',
         variant: 'destructive',
       });
     } finally {
@@ -127,8 +129,8 @@ function CurrencySettingsContent() {
     } catch (error) {
       console.error('Error updating rates:', error);
       toast({
-        title: 'Hata',
-        description: 'Error updating exchange rates.',
+        title: 'Error',
+        description: 'Failed to update exchange rates.',
         variant: 'destructive',
       });
     } finally {
@@ -157,6 +159,12 @@ function CurrencySettingsContent() {
       const updatedCurrency = { ...currency, is_default: true };
       await updateCurrency(updatedCurrency);
     }
+  };
+
+  const handleAdminDisplayToggle = async (currency: Currency) => {
+    // Only one currency can be admin display at a time
+    const updatedCurrency = { ...currency, is_admin_display: true };
+    await updateCurrency(updatedCurrency);
   };
 
   if (loading) {
@@ -198,11 +206,17 @@ function CurrencySettingsContent() {
                       {currency.currency_name} ({currency.currency_code})
                     </CardTitle>
                     <CardDescription>
-                      Last updated: {new Date(currency.last_updated).toLocaleString('tr-TR')}
+                      Last updated: {new Date(currency.last_updated).toLocaleString('en-US')}
                     </CardDescription>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {currency.is_admin_display && (
+                    <Badge variant="default" className="bg-amber-500">
+                      <Star className="w-3 h-3 mr-1" />
+                      Admin Panel
+                    </Badge>
+                  )}
                   {currency.is_default && (
                     <Badge variant="default">Default</Badge>
                   )}
@@ -254,7 +268,10 @@ function CurrencySettingsContent() {
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor={`active-${currency.id}`}>Aktif</Label>
+                    <div>
+                      <Label htmlFor={`active-${currency.id}`}>Active</Label>
+                      <p className="text-xs text-muted-foreground">Customers can see this currency</p>
+                    </div>
                     <Switch
                       id={`active-${currency.id}`}
                       checked={currency.is_active}
@@ -264,12 +281,33 @@ function CurrencySettingsContent() {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <Label htmlFor={`default-${currency.id}`}>Default Para Birimi</Label>
+                    <div>
+                      <Label htmlFor={`default-${currency.id}`}>Default Currency</Label>
+                      <p className="text-xs text-muted-foreground">Default for new customers</p>
+                    </div>
                     <Switch
                       id={`default-${currency.id}`}
                       checked={currency.is_default}
                       onCheckedChange={() => handleDefaultToggle(currency)}
                       disabled={currency.is_default || saving}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label htmlFor={`admin-display-${currency.id}`} className="flex items-center gap-1">
+                        <Star className="w-3 h-3 text-amber-500" />
+                        Admin Panel Display
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Use this currency in Dashboard and reports
+                      </p>
+                    </div>
+                    <Switch
+                      id={`admin-display-${currency.id}`}
+                      checked={currency.is_admin_display}
+                      onCheckedChange={() => handleAdminDisplayToggle(currency)}
+                      disabled={currency.is_admin_display || saving}
                     />
                   </div>
 

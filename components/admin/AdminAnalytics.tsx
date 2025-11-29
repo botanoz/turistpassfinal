@@ -31,6 +31,9 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
+import { useCurrency } from '@/hooks/useCurrency';
+import { CurrencySelector } from '@/components/currency/CurrencySelector';
+import { formatCurrency as formatWithCurrency } from '@/lib/utils/currency';
 
 interface SalesAnalytics {
   totalRevenue: number;
@@ -108,6 +111,11 @@ export default function AdminAnalytics() {
   const [revenueChartData, setRevenueChartData] = useState<RevenueDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [adminCurrency, setAdminCurrency] = useState<any>(null);
+  const { currency: selectedCurrency, changeCurrency, loading: currencyLoading } = useCurrency();
+  
+  // Use admin display currency if available, otherwise fall back to selected currency
+  const displayCurrency = adminCurrency || selectedCurrency;
 
   const getDateRange = (option: DateRangeOption): { startDate: Date; endDate: Date } => {
     const endDate = new Date();
@@ -161,15 +169,17 @@ export default function AdminAnalytics() {
   useEffect(() => {
     fetchAnalytics();
     fetchRevenueChart();
-  }, [dateRangeOption, chartInterval]);
+  }, [dateRangeOption, chartInterval, selectedCurrency?.currency_code]);
 
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
       const { startDate, endDate } = getDateRange(dateRangeOption);
 
+      // If no currency selected, let API use admin display currency
+      const currencyParam = selectedCurrency?.currency_code || '';
       const response = await fetch(
-        `/api/admin/analytics?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`
+        `/api/admin/analytics?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}&currency=${currencyParam}`
       );
 
       if (!response.ok) {
@@ -178,6 +188,17 @@ export default function AdminAnalytics() {
       }
 
       const data = await response.json();
+
+      // Set admin currency from API response if available
+      if (data.currencyInfo) {
+        setAdminCurrency({
+          currency_code: data.currencyInfo.code,
+          currency_symbol: data.currencyInfo.symbol,
+          symbol_position: data.currencyInfo.symbolPosition,
+          decimal_places: data.currencyInfo.decimalPlaces,
+          exchange_rate: data.currencyInfo.exchangeRate
+        });
+      }
 
       if (data.analytics) {
         // If analytics is a JSON string, parse it
@@ -205,7 +226,7 @@ export default function AdminAnalytics() {
       const { startDate, endDate } = getDateRange(dateRangeOption);
 
       const response = await fetch(
-        `/api/admin/analytics/revenue-chart?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}&interval=${chartInterval}`
+        `/api/admin/analytics/revenue-chart?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}&interval=${chartInterval}&currency=${selectedCurrency?.currency_code || ''}`
       );
       const data = await response.json();
 
@@ -223,7 +244,7 @@ export default function AdminAnalytics() {
       const { startDate, endDate } = getDateRange(dateRangeOption);
 
       const response = await fetch(
-        `/api/admin/analytics/export?format=${format}&type=${type}&start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`
+        `/api/admin/analytics/export?format=${format}&type=${type}&start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}&currency=${selectedCurrency?.currency_code || ''}`
       );
 
       const blob = await response.blob();
@@ -243,6 +264,9 @@ export default function AdminAnalytics() {
   };
 
   const formatCurrency = (amount: number) => {
+    if (displayCurrency) {
+      return formatWithCurrency(amount, displayCurrency);
+    }
     return new Intl.NumberFormat('tr-TR', {
       style: 'currency',
       currency: 'TRY'
@@ -253,7 +277,7 @@ export default function AdminAnalytics() {
     return new Intl.NumberFormat('tr-TR').format(num);
   };
 
-  if (loading) {
+  if (loading || currencyLoading) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-96">
@@ -283,7 +307,8 @@ export default function AdminAnalytics() {
             <p className="text-gray-500 mt-1">Detailed sales and performance analytics</p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <CurrencySelector onCurrencyChange={(c) => changeCurrency(c.currency_code)} />
             <Button
               variant="outline"
               size="sm"
@@ -641,7 +666,7 @@ export default function AdminAnalytics() {
                       </div>
                       <div className="text-right">
                         <p className="text-2xl font-bold text-blue-600">{business.pass_count}</p>
-                        <p className="text-sm text-gray-500">Pass'e dahil</p>
+                        <p className="text-sm text-gray-500">Included in passes</p>
                       </div>
                     </div>
                   ))}

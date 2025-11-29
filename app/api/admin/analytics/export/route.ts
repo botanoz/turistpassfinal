@@ -30,6 +30,14 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') || 'sales'; // sales, passes, businesses
     const startDate = searchParams.get('start_date') || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const endDate = searchParams.get('end_date') || new Date().toISOString();
+    const targetCurrency = searchParams.get('currency');
+
+    // Resolve target currency (fall back to default currency setting)
+    let resolvedCurrency = targetCurrency;
+    if (!resolvedCurrency) {
+      const { data: defaultCurrency } = await supabase.rpc('get_default_currency');
+      resolvedCurrency = defaultCurrency || 'TRY';
+    }
 
     let data: any[] = [];
     let filename = '';
@@ -42,7 +50,8 @@ export async function GET(request: NextRequest) {
           .rpc('get_revenue_by_date', {
             start_date: startDate,
             end_date: endDate,
-            interval_type: 'day'
+            interval_type: 'day',
+            target_currency: resolvedCurrency
           });
 
         if (error) throw error;
@@ -57,7 +66,8 @@ export async function GET(request: NextRequest) {
           .rpc('get_top_selling_passes', {
             limit_count: 100,
             start_date: startDate,
-            end_date: endDate
+            end_date: endDate,
+            target_currency: resolvedCurrency
           });
 
         if (error) throw error;

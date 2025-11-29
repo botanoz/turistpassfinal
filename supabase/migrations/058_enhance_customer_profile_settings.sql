@@ -65,6 +65,11 @@ CREATE INDEX IF NOT EXISTS idx_profile_changelog_created ON customer_profile_cha
 -- RLS
 ALTER TABLE customer_profile_changelog ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies to avoid "already exists" errors
+DROP POLICY IF EXISTS "Customers can view own changelog" ON customer_profile_changelog;
+DROP POLICY IF EXISTS "Admins can view all changelogs" ON customer_profile_changelog;
+DROP POLICY IF EXISTS "System can insert changelog" ON customer_profile_changelog;
+
 -- Customers can view their own change history
 CREATE POLICY "Customers can view own changelog"
   ON customer_profile_changelog FOR SELECT
@@ -126,6 +131,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- RLS
 ALTER TABLE password_reset_tokens ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policy to avoid "already exists" error
+DROP POLICY IF EXISTS "No direct access to reset tokens" ON password_reset_tokens;
+
 -- No direct access - only through functions
 CREATE POLICY "No direct access to reset tokens"
   ON password_reset_tokens FOR ALL
@@ -168,6 +176,10 @@ CREATE INDEX IF NOT EXISTS idx_email_change_verified ON email_change_requests(ve
 
 -- RLS
 ALTER TABLE email_change_requests ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies to avoid "already exists" errors
+DROP POLICY IF EXISTS "Customers can view own email changes" ON email_change_requests;
+DROP POLICY IF EXISTS "System can manage email changes" ON email_change_requests;
 
 -- Customers can view their own email change requests
 CREATE POLICY "Customers can view own email changes"
@@ -286,7 +298,7 @@ CREATE OR REPLACE FUNCTION get_profile_activity(customer_uuid UUID, limit_count 
 RETURNS TABLE (
   activity_type TEXT,
   description TEXT,
-  timestamp TIMESTAMPTZ,
+  event_timestamp TIMESTAMPTZ,
   metadata JSONB
 ) AS $$
 BEGIN
@@ -294,7 +306,7 @@ BEGIN
   SELECT
     'profile_change'::TEXT as activity_type,
     'Changed ' || field_changed as description,
-    created_at as timestamp,
+    created_at as event_timestamp,
     json_build_object(
       'field', field_changed,
       'change_type', change_type

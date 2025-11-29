@@ -58,40 +58,102 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { passId, passName, days, adults, children, adultPrice, childPrice, discount, discountCode } = body;
+    const { passId, passName, days, adults, children, discount, discountCode, currency: requestedCurrency } = body;
+
+    // Determine target currency (default to TRY if not specified or invalid)
+    const targetCurrency = (requestedCurrency || '').toString().toUpperCase() || 'TRY';
 
     const adultCount = Number(adults) || 0;
     const childCount = Number(children) || 0;
-    const adultUnitPrice = Number(adultPrice) || 0;
-    const childUnitPrice = Number(childPrice) || 0;
     const discountPercentage = discount ? Number(discount.percentage) || 0 : 0;
 
-    // Calculate totals
-    const adultTotal = adultCount * adultUnitPrice;
-    const childTotal = childCount * childUnitPrice;
-    const subtotal = adultTotal + childTotal;
+    // Resolve exchange rate for target currency (TRY base)
+    let exchangeRate = 1; // TRY per unit target currency
+    if (targetCurrency !== 'TRY') {
+      const { data: currencyRow } = await serviceSupabase
+        .from('currency_settings')
+        .select('exchange_rate')
+        .eq('currency_code', targetCurrency)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (currencyRow?.exchange_rate) {
+        exchangeRate = Number(currencyRow.exchange_rate) || 1;
+      } else {
+        console.warn('Currency not found, falling back to TRY', targetCurrency);
+      }
+    }
 
-    // Calculate discount (either from pass discount or discount code)
-    let discountAmount = subtotal > 0 ? (subtotal * discountPercentage) / 100 : 0;
+    // Fetch pass pricing from DB to avoid trusting client prices
+    const { data: pricingRows, error: pricingError } = await serviceSupabase
+      .from('pass_pricing')
+      .select('age_group, days, price, price_usd, price_eur, price_gbp, price_jpy, currency_code')
+      .eq('pass_id', passId)
+      .eq('days', days)
+      .in('age_group', ['adult', 'child']);
+
+    if (pricingError) {
+      console.error('Error fetching pass pricing:', pricingError);
+      throw pricingError;
+    }
+
+    const priceFieldMap: Record<string, string> = {
+      TRY: 'price',
+      USD: 'price_usd',
+      EUR: 'price_eur',
+      GBP: 'price_gbp',
+      JPY: 'price_jpy',
+    };
+
+    const resolvePrice = (age: 'adult' | 'child'): { tryPrice: number; targetPrice: number } => {
+      const row = pricingRows?.find((p) => p.age_group === age);
+      if (!row) return { tryPrice: 0, targetPrice: 0 };
+
+      const basePriceTRY = Number(row.price) || 0; // stored as TRY base
+      const field = priceFieldMap[targetCurrency] || 'price';
+      const precomputed = Number((row as any)[field]) || null;
+      const targetPrice = precomputed && precomputed > 0
+        ? precomputed
+        : targetCurrency === 'TRY'
+          ? basePriceTRY
+          : basePriceTRY / exchangeRate;
+
+      return { tryPrice: basePriceTRY, targetPrice };
+    };
+
+    const adultPricing = resolvePrice('adult');
+    const childPricing = resolvePrice('child');
+
+    // Totals in target currency
+    const adultTotalTarget = adultCount * adultPricing.targetPrice;
+    const childTotalTarget = childCount * childPricing.targetPrice;
+    const subtotalTarget = adultTotalTarget + childTotalTarget;
+
+    // Totals in base TRY (for discount validation)
+    const adultTotalTRY = adultCount * adultPricing.tryPrice;
+    const childTotalTRY = childCount * childPricing.tryPrice;
+    const subtotalTRY = adultTotalTRY + childTotalTRY;
+
+    // Calculate discount (pass-level percentage) in target currency
+    let discountAmountTarget = subtotalTarget > 0 ? (subtotalTarget * discountPercentage) / 100 : 0;
     let discountCodeId = null;
     let appliedDiscountCode = null;
 
-    // If discount code is provided, validate and apply it
+    // If discount code is provided, validate and apply it (validation in TRY, convert result)
     if (discountCode && discountCode.trim()) {
       try {
         const { data: validationResult, error: validationError } = await serviceSupabase
           .rpc('validate_discount_code', {
             p_code: discountCode.trim(),
             p_customer_id: user.id,
-            p_subtotal: subtotal,
+            p_subtotal: subtotalTRY,
             p_pass_id: passId || null,
           });
 
         if (!validationError && validationResult && validationResult.length > 0) {
           const result = validationResult[0];
           if (result.is_valid) {
-            // Apply discount code (replaces any pass discount)
-            discountAmount = Number(result.discount_amount) || 0;
+            const discountTRY = Number(result.discount_amount) || 0;
+            discountAmountTarget = targetCurrency === 'TRY' ? discountTRY : discountTRY / exchangeRate;
             discountCodeId = result.discount_code_id;
             appliedDiscountCode = discountCode.trim().toUpperCase();
           }
@@ -102,7 +164,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const totalAmount = Math.max(subtotal - discountAmount, 0);
+    const totalAmountTarget = Math.max(subtotalTarget - discountAmountTarget, 0);
 
     // Generate order number
     const orderNumber = `ORD-${Date.now().toString().slice(-6)}`;
@@ -114,8 +176,12 @@ export async function POST(request: Request) {
         order_number: orderNumber,
         customer_id: user.id,
         status: 'completed',
-        total_amount: totalAmount,
-        currency: 'USD',
+        subtotal: subtotalTarget,
+        discount_amount: discountAmountTarget,
+        total_amount: totalAmountTarget,
+        currency: targetCurrency,
+        currency_code: targetCurrency, // Also set currency_code for compatibility
+        discount_code_id: discountCodeId,
         payment_method: 'credit_card',
         payment_status: 'completed', // SIMULATED - payment is auto-approved
         payment_id: `SIM-PAY-${Date.now()}`, // Simulated payment ID
@@ -140,8 +206,8 @@ export async function POST(request: Request) {
         pass_name: `${passName} - ${days} day${days > 1 ? 's' : ''} (Adult)`,
         pass_type: `${days}-day-adult`,
         quantity: adultCount,
-        unit_price: adultUnitPrice,
-        total_price: adultTotal
+        unit_price: adultPricing.targetPrice,
+        total_price: adultTotalTarget
       });
     }
 
@@ -152,8 +218,8 @@ export async function POST(request: Request) {
         pass_name: `${passName} - ${days} day${days > 1 ? 's' : ''} (Child)`,
         pass_type: `${days}-day-child`,
         quantity: childCount,
-        unit_price: childUnitPrice,
-        total_price: childTotal
+        unit_price: childPricing.targetPrice,
+        total_price: childTotalTarget
       });
     }
 
@@ -229,9 +295,9 @@ export async function POST(request: Request) {
             customer_id: user.id,
             order_id: order.id,
             code_used: appliedDiscountCode,
-            discount_amount: discountAmount,
-            order_subtotal: subtotal,
-            order_total: totalAmount,
+            discount_amount: discountAmountTarget,
+            order_subtotal: subtotalTarget,
+            order_total: totalAmountTarget,
           });
       } catch (usageError) {
         console.error('Error recording discount code usage:', usageError);
@@ -241,8 +307,9 @@ export async function POST(request: Request) {
 
     console.log('Order created successfully:', order.id, orderNumber);
     console.log('Created', purchasedPasses.length, 'purchased passes');
+    console.log('Currency:', targetCurrency, 'Total:', totalAmountTarget);
     if (appliedDiscountCode) {
-      console.log('Applied discount code:', appliedDiscountCode, 'Amount:', discountAmount);
+      console.log('Applied discount code:', appliedDiscountCode, 'Amount:', discountAmountTarget);
     }
 
     return NextResponse.json({
@@ -252,15 +319,16 @@ export async function POST(request: Request) {
       order: {
         id: order.id,
         orderNumber: order.order_number,
-        totalAmount,
-        subtotal,
-        discountAmount,
+        totalAmount: totalAmountTarget,
+        subtotal: subtotalTarget,
+        discountAmount: discountAmountTarget,
+        currency: targetCurrency,
         discountCode: appliedDiscountCode,
         items: {
           adults: adultCount,
           children: childCount,
-          adultPrice: adultUnitPrice,
-          childPrice: childUnitPrice
+          adultPrice: adultPricing.targetPrice,
+          childPrice: childPricing.targetPrice
         }
       }
     });

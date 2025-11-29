@@ -63,7 +63,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, exchange_rate, is_active, is_default } = body;
+    const { id, exchange_rate, is_active, is_default, is_admin_display } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Currency ID is required' }, { status: 400 });
@@ -77,16 +77,28 @@ export async function PUT(request: NextRequest) {
         .neq('id', id);
     }
 
+    // If setting as admin display, unset other admin displays first
+    if (is_admin_display === true) {
+      await supabase
+        .from('currency_settings')
+        .update({ is_admin_display: false })
+        .neq('id', id);
+    }
+
     // Update the currency
+    const updateData: any = {
+      last_updated: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    
+    if (exchange_rate !== undefined) updateData.exchange_rate = exchange_rate;
+    if (is_active !== undefined) updateData.is_active = is_active;
+    if (is_default !== undefined) updateData.is_default = is_default;
+    if (is_admin_display !== undefined) updateData.is_admin_display = is_admin_display;
+
     const { data: currency, error } = await supabase
       .from('currency_settings')
-      .update({
-        exchange_rate: exchange_rate,
-        is_active: is_active,
-        is_default: is_default,
-        last_updated: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();

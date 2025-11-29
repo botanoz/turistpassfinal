@@ -31,6 +31,14 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = (page - 1) * limit;
+    const targetCurrency = searchParams.get('currency');
+
+    // Resolve target currency (fall back to default)
+    let resolvedCurrency = targetCurrency;
+    if (!resolvedCurrency) {
+      const { data: defaultCurrency } = await supabase.rpc('get_default_currency');
+      resolvedCurrency = defaultCurrency || 'TRY';
+    }
 
     // Build query
     let query = supabase
@@ -108,7 +116,7 @@ export async function GET(request: NextRequest) {
 
     // Get stats using the database function
     const { data: statsData, error: statsError } = await supabase
-      .rpc('get_admin_orders_stats');
+      .rpc('get_admin_orders_stats', { target_currency: resolvedCurrency });
 
     if (statsError) {
       console.error('Stats error:', statsError);
@@ -133,6 +141,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       orders: filteredOrders,
       stats: formattedStats,
+      currency: resolvedCurrency,
       pagination: {
         page,
         limit,

@@ -22,6 +22,22 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized - Admin access required" }, { status: 403 });
     }
 
+    // Get admin display currency (the currency selected for admin panel display)
+    const { data: adminCurrency } = await supabase
+      .from('currency_settings')
+      .select('*')
+      .eq('is_admin_display', true)
+      .single();
+
+    // Fallback to default currency if no admin display currency is set
+    const displayCurrency = adminCurrency || {
+      currency_code: 'TRY',
+      currency_symbol: '₺',
+      exchange_rate: 1,
+      symbol_position: 'before',
+      decimal_places: 2
+    };
+
     // Get dashboard stats using the database function
     const { data: stats, error: statsError } = await supabase
       .rpc('get_dashboard_stats');
@@ -66,6 +82,27 @@ export async function GET() {
       return Number((((current - previous) / previous) * 100).toFixed(1));
     };
 
+    // Convert revenue to display currency
+    const revenueTRY = Number(currentStats.monthly_revenue) || 0;
+    const exchangeRate = displayCurrency.exchange_rate || 1;
+    const revenueInDisplayCurrency = displayCurrency.currency_code === 'TRY' 
+      ? revenueTRY 
+      : revenueTRY / exchangeRate;
+    
+    // Format revenue with proper currency symbol
+    const formatCurrency = (amount: number) => {
+      const formattedAmount = amount.toLocaleString(
+        displayCurrency.currency_code === 'TRY' ? 'tr-TR' : 'en-US',
+        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+      );
+      
+      if (displayCurrency.symbol_position === 'before') {
+        return `${displayCurrency.currency_symbol}${formattedAmount}`;
+      } else {
+        return `${formattedAmount}${displayCurrency.currency_symbol}`;
+      }
+    };
+
     // Main stats with change percentages
     const mainStats = [
       {
@@ -97,7 +134,7 @@ export async function GET() {
       },
       {
         label: "Monthly Revenue",
-        value: `₺${Number(currentStats.monthly_revenue).toLocaleString('tr-TR')}`,
+        value: formatCurrency(revenueInDisplayCurrency),
         change: `${calculateChange(Number(currentStats.monthly_revenue), previousMonthStats.monthly_revenue) >= 0 ? '+' : ''}${calculateChange(Number(currentStats.monthly_revenue), previousMonthStats.monthly_revenue)}%`,
         icon: "DollarSign",
         color: "text-emerald-600",

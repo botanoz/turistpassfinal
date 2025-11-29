@@ -31,9 +31,11 @@ BEGIN
     -- Create free tier plan
     INSERT INTO business_subscription_plans (
       name,
+      slug,
       description,
+      plan_type,
       price,
-      billing_period,
+      billing_cycle,
       currency,
       features,
       limits,
@@ -41,7 +43,9 @@ BEGIN
       trial_days
     ) VALUES (
       'Free Tier',
+      'free-tier',
       'Free plan for testing and small businesses',
+      'free',
       0,
       'monthly',
       'TRY',

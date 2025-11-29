@@ -50,17 +50,23 @@ interface Order {
   status: string;
   payment_status: string;
   total_amount: number;
+  subtotal: number;
+  discount_amount: number;
   currency: string;
   payment_method: string;
   created_at: string;
+  completed_at?: string;
   order_items: OrderItem[];
 }
 
 interface OrderItem {
   id: string;
+  pass_id: string;
+  pass_name: string;
+  pass_type: string;
   quantity: number;
   unit_price: number;
-  subtotal: number;
+  total_price: number;
   adult_quantity?: number;
   child_quantity?: number;
   passes: {
@@ -459,7 +465,7 @@ export default function PaymentsPage() {
                         {order.order_items?.map((item) => (
                           <div key={item.id} className="flex justify-between items-start py-2 border-b last:border-0">
                             <div>
-                              <p className="font-medium">{item.passes?.name}</p>
+                              <p className="font-medium">{item.passes?.name || item.pass_name}</p>
                               {item.adult_quantity && (
                                 <p className="text-sm text-muted-foreground">Adult: {item.adult_quantity}</p>
                               )}
@@ -467,7 +473,7 @@ export default function PaymentsPage() {
                                 <p className="text-sm text-muted-foreground">Child: {item.child_quantity}</p>
                               )}
                             </div>
-                            <p className="font-semibold">{formatCurrency(item.subtotal, order.currency)}</p>
+                            <p className="font-semibold">{formatCurrency(item.total_price, order.currency)}</p>
                           </div>
                         ))}
                       </div>

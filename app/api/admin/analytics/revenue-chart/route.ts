@@ -29,10 +29,18 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('start_date') || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const endDate = searchParams.get('end_date') || new Date().toISOString();
     const intervalType = searchParams.get('interval') || 'day'; // day, week, month
+    const targetCurrency = searchParams.get('currency');
 
     // Validate interval type
     if (!['day', 'week', 'month'].includes(intervalType)) {
       return NextResponse.json({ error: "Invalid interval type" }, { status: 400 });
+    }
+
+    // Resolve target currency (fall back to default currency setting)
+    let resolvedCurrency = targetCurrency;
+    if (!resolvedCurrency) {
+      const { data: defaultCurrency } = await supabase.rpc('get_default_currency');
+      resolvedCurrency = defaultCurrency || 'TRY';
     }
 
     // Get revenue data
@@ -40,7 +48,8 @@ export async function GET(request: NextRequest) {
       .rpc('get_revenue_by_date', {
         start_date: startDate,
         end_date: endDate,
-        interval_type: intervalType
+        interval_type: intervalType,
+        target_currency: resolvedCurrency
       });
 
     if (revenueError) {
@@ -50,11 +59,13 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       data: revenueData || [],
+      revenueData: revenueData || [],
       interval: intervalType,
       dateRange: {
         start: startDate,
         end: endDate
-      }
+      },
+      currency: resolvedCurrency
     });
 
   } catch (error) {

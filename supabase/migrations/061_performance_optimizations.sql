@@ -21,9 +21,9 @@ CREATE INDEX IF NOT EXISTS idx_order_items_order_pass ON order_items(order_id, p
 CREATE INDEX IF NOT EXISTS idx_purchased_passes_customer_status ON purchased_passes(customer_id, status);
 CREATE INDEX IF NOT EXISTS idx_purchased_passes_status_expiry ON purchased_passes(status, expiry_date);
 
--- Optimize venue visits
+-- Optimize venue visits (using business_id instead of venue_id)
 CREATE INDEX IF NOT EXISTS idx_venue_visits_customer_date ON venue_visits(customer_id, visit_date DESC);
-CREATE INDEX IF NOT EXISTS idx_venue_visits_venue_date ON venue_visits(venue_id, visit_date DESC);
+CREATE INDEX IF NOT EXISTS idx_venue_visits_business_date ON venue_visits(business_id, visit_date DESC);
 
 -- Optimize support tickets for SLA queries
 CREATE INDEX IF NOT EXISTS idx_support_tickets_status_priority ON support_tickets(status, priority);
@@ -40,7 +40,7 @@ CREATE INDEX IF NOT EXISTS idx_notification_preferences_customer_unique ON notif
 
 -- Partial indexes for active records only
 CREATE INDEX IF NOT EXISTS idx_passes_active ON passes(id, name) WHERE status = 'active';
-CREATE INDEX IF NOT EXISTS idx_venues_active ON venues(id, name) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_businesses_active ON businesses(id, name) WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS idx_discount_codes_active ON discount_codes(code) WHERE status = 'active';
 
 -- ============================================
@@ -310,6 +310,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 7. OPTIMIZE PASS DETAILS FUNCTION
 -- ============================================
 
+-- Drop existing function if signature changed
+DROP FUNCTION IF EXISTS get_pass_details(UUID);
+
 CREATE OR REPLACE FUNCTION get_pass_details(pass_uuid UUID)
 RETURNS JSON AS $$
 DECLARE
@@ -324,18 +327,18 @@ BEGIN
        WHERE pp.pass_id = pass_uuid),
       '[]'::json
     ),
-    'venues', COALESCE(
+    'businesses', COALESCE(
       (SELECT json_agg(
         jsonb_build_object(
-          'venue', to_jsonb(v.*),
-          'discount', pv.discount,
-          'usage_type', pv.usage_type,
-          'max_usage', pv.max_usage
+          'business', to_jsonb(b.*),
+          'discount', pb.discount,
+          'usage_type', pb.usage_type,
+          'max_usage', pb.max_usage
         )
       )
-      FROM pass_venues pv
-      JOIN venues v ON v.id = pv.venue_id
-      WHERE pv.pass_id = pass_uuid),
+      FROM pass_businesses pb
+      JOIN businesses b ON b.id = pb.business_id
+      WHERE pb.pass_id = pass_uuid),
       '[]'::json
     )
   ) INTO result
@@ -383,6 +386,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 9. OPTIMIZE VENUE VISIT STATS
 -- ============================================
 
+-- Drop existing function if signature changed
+DROP FUNCTION IF EXISTS get_customer_visit_summary(UUID);
+
 CREATE OR REPLACE FUNCTION get_customer_visit_summary(customer_uuid UUID)
 RETURNS TABLE (
   total_visits BIGINT,
@@ -396,7 +402,7 @@ BEGIN
   WITH visit_stats AS (
     SELECT
       COUNT(*) as visits,
-      COUNT(DISTINCT vv.venue_id) as venues,
+      COUNT(DISTINCT vv.business_id) as venues,
       COALESCE(SUM(vv.discount_amount), 0) as savings,
       MAX(vv.visit_date) as last_visit
     FROM venue_visits vv
@@ -404,12 +410,12 @@ BEGIN
       AND vv.status = 'completed'
   ),
   category_stats AS (
-    SELECT v.category
+    SELECT b.category
     FROM venue_visits vv
-    JOIN venues v ON v.id = vv.venue_id
+    JOIN businesses b ON b.id = vv.business_id
     WHERE vv.customer_id = customer_uuid
       AND vv.status = 'completed'
-    GROUP BY v.category
+    GROUP BY b.category
     ORDER BY COUNT(*) DESC
     LIMIT 1
   )

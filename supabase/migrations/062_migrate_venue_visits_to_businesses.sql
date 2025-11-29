@@ -71,6 +71,12 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_venue_visits_business ON venue_visits(business_id);
 
 -- 5) Update helper functions to use businesses but keep names/return fields
+-- Drop existing functions to avoid signature conflicts
+DROP FUNCTION IF EXISTS get_customer_visit_history(UUID, INTEGER);
+DROP FUNCTION IF EXISTS get_venue_visit_stats(UUID);
+DROP FUNCTION IF EXISTS get_customer_visit_summary(UUID);
+DROP FUNCTION IF EXISTS get_popular_venues(INTEGER);
+
 CREATE OR REPLACE FUNCTION get_customer_visit_history(customer_uuid UUID, limit_count INTEGER DEFAULT 50)
 RETURNS TABLE (
   visit_id UUID,

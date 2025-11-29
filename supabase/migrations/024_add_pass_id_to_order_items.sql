@@ -10,10 +10,18 @@
 ALTER TABLE order_items
 ADD COLUMN IF NOT EXISTS pass_id UUID;
 
--- Add foreign key constraint
-ALTER TABLE order_items
-ADD CONSTRAINT fk_order_items_pass
-FOREIGN KEY (pass_id) REFERENCES passes(id) ON DELETE SET NULL;
+-- Add foreign key constraint (only if not already exists)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'fk_order_items_pass'
+  ) THEN
+    ALTER TABLE order_items
+    ADD CONSTRAINT fk_order_items_pass
+    FOREIGN KEY (pass_id) REFERENCES passes(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 
 -- Update existing order_items to set pass_id based on pass_name
 UPDATE order_items oi

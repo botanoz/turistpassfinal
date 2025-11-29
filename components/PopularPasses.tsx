@@ -12,6 +12,7 @@ import Image from "next/image";
 import type { Pass as DatabasePass } from "@/lib/services/passService";
 import { toast } from "sonner";
 import { FormattedPrice } from "@/components/currency/FormattedPrice";
+import { useCurrency } from "@/hooks/useCurrency";
 
 interface PassSelection {
   passType: string;
@@ -166,6 +167,7 @@ export default function PopularPasses() {
   const [isLoading, setIsLoading] = useState(true);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const { currency } = useCurrency();
 
   // Split passes: primary (popular), sides (2), and the rest for carousel
   const { primaryPass, sidePasses, otherPasses } = useMemo(() => {
@@ -349,6 +351,8 @@ export default function PopularPasses() {
         return;
       }
 
+      const chosenCurrency = currency?.currency_code || 'TRY';
+
       const response = await fetch('/api/orders/create', {
         method: 'POST',
         headers: {
@@ -364,16 +368,27 @@ export default function PopularPasses() {
           childPrice: selectedOption.childPrice,
           discount: selectedPassData.discount,
           discountCode: selection.discountCode || null,
+          currency: chosenCurrency, // Use selected currency from selector (defaults to TRY)
         }),
       });
 
       const result = await response.json();
 
       if (result.success) {
+        const orderCurrency = currency?.currency_code || result.order.currency || 'TRY';
+        const symbol =
+          currency?.currency_symbol ||
+          (orderCurrency === 'TRY'
+            ? '₺'
+            : orderCurrency === 'EUR'
+            ? '€'
+            : orderCurrency === 'GBP'
+            ? '£'
+            : orderCurrency === 'JPY'
+            ? '¥'
+            : '$');
         toast.success("Order created successfully", {
-          description: `Order #${result.order.orderNumber} - Total $${result.order.totalAmount.toFixed(2)}${
-            result.simulated ? " - payment simulated" : ""
-          }`,
+          description: `Order #${result.order.orderNumber} - Total ${symbol}${Number(result.order.totalAmount).toFixed(2)}${result.simulated ? " - payment simulated" : ""}`,
         });
         closeSidebar();
       } else {

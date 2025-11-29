@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,8 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { enUS } from "date-fns/locale";
+import { useCurrency } from "@/hooks/useCurrency";
+import { Currency, formatCurrency as formatWithCurrency } from "@/lib/utils/currency";
 
 interface Order {
   id: string;
@@ -107,10 +109,19 @@ export default function AdminOrdersEnhanced() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
+  const { currency: selectedCurrency, currencies, loading: currencyLoading } = useCurrency();
+
+  const currencyMap = useMemo<Record<string, Currency>>(() => {
+    const map: Record<string, Currency> = {};
+    currencies.forEach((c) => {
+      map[c.currency_code] = c;
+    });
+    return map;
+  }, [currencies]);
 
   useEffect(() => {
     fetchOrders();
-  }, [statusFilter, paymentStatusFilter]);
+  }, [statusFilter, paymentStatusFilter, selectedCurrency?.currency_code]);
 
   const fetchOrders = async () => {
     try {
@@ -119,6 +130,7 @@ export default function AdminOrdersEnhanced() {
         status: statusFilter,
         paymentStatus: paymentStatusFilter,
         search: searchQuery,
+        currency: selectedCurrency?.currency_code || "",
       });
       const response = await fetch(`/api/admin/orders?${params}`);
       if (!response.ok) throw new Error("Failed to fetch");
@@ -254,15 +266,27 @@ export default function AdminOrdersEnhanced() {
     return icons[eventType] || Calendar;
   };
 
-  const formatCurrency = (amount: number, currency: string = "TRY") => {
-    const symbols: Record<string, string> = {
-      TRY: "₺",
-      USD: "$",
-      EUR: "€",
-      GBP: "£",
-      JPY: "¥",
-    };
-    return `${symbols[currency] || currency} ${amount.toFixed(2)}`;
+  const convertAndFormat = (amount: number, sourceCurrency?: string) => {
+    if (!selectedCurrency) {
+      return `${sourceCurrency || "TRY"} ${amount.toFixed(2)}`;
+    }
+
+    if (sourceCurrency && sourceCurrency === selectedCurrency.currency_code) {
+      return formatWithCurrency(amount, selectedCurrency);
+    }
+
+    const target = selectedCurrency;
+    const source = sourceCurrency ? currencyMap[sourceCurrency] : undefined;
+    const sourceRate = source?.exchange_rate || 1;
+    const targetRate = target.exchange_rate || 1;
+
+    // Convert source -> TRY -> target
+    const amountInTry =
+      sourceCurrency && sourceCurrency !== "TRY" ? amount * sourceRate : amount;
+    const converted =
+      target.currency_code === "TRY" ? amountInTry : amountInTry / targetRate;
+
+    return formatWithCurrency(converted, target);
   };
 
   const statsCards = [
@@ -271,7 +295,7 @@ export default function AdminOrdersEnhanced() {
     { label: "Pending", value: stats.pending, icon: Clock, color: "text-yellow-600" },
     {
       label: "Total Revenue",
-      value: formatCurrency(stats.totalRevenue || 0),
+      value: convertAndFormat(stats.totalRevenue || 0, selectedCurrency?.currency_code || "TRY"),
       icon: DollarSign,
       color: "text-purple-600",
     },
@@ -398,7 +422,7 @@ export default function AdminOrdersEnhanced() {
                             </div>
                             <div className="flex items-center gap-2">
                               <DollarSign className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-semibold">{formatCurrency(order.total_amount, order.currency)}</span>
+                              <span className="font-semibold">{convertAndFormat(order.total_amount, order.currency)}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -498,13 +522,13 @@ export default function AdminOrdersEnhanced() {
                       <div key={item.id} className="flex justify-between p-3 bg-muted rounded-lg text-sm">
                         <span>{item.passes?.name}</span>
                         <span>
-                          {item.quantity} x {formatCurrency(item.unit_price, selectedOrder.currency)}
+                          {item.quantity} x {convertAndFormat(item.unit_price, selectedOrder.currency)}
                         </span>
                       </div>
                     ))}
                     <div className="flex justify-between p-3 border-t font-semibold">
                       <span>Total</span>
-                      <span>{formatCurrency(selectedOrder.total_amount, selectedOrder.currency)}</span>
+                      <span>{convertAndFormat(selectedOrder.total_amount, selectedOrder.currency)}</span>
                     </div>
                   </div>
                 </div>
