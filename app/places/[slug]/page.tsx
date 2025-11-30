@@ -32,6 +32,7 @@ function PlaceDetailContent({ slug }: { slug: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [realPasses, setRealPasses] = useState<Record<string, any>>({});
+  const [reviewsState, setReviewsState] = useState<any[]>([]);
 
   // Fetch business data from API
   useEffect(() => {
@@ -47,6 +48,7 @@ function PlaceDetailContent({ slug }: { slug: string }) {
 
         if (result.success) {
           setPlace(result.business);
+          setReviewsState(result.business.reviews || []);
 
           // Convert passes array to object format for PassInfo component
           if (result.business.passes && result.business.passes.length > 0) {
@@ -153,6 +155,20 @@ function PlaceDetailContent({ slug }: { slug: string }) {
     setIsPassSidebarOpen(false);
   };
 
+  const handleReviewsChange = (payload: { reviews: any[]; reviewCount: number; averageRating: number }) => {
+    setReviewsState(payload.reviews);
+    setPlace((prev: any) =>
+      prev
+        ? {
+            ...prev,
+            reviews: payload.reviews,
+            reviewCount: payload.reviewCount,
+            rating: payload.averageRating,
+          }
+        : prev
+    );
+  };
+
   // Show loading state - NOW after all hooks
   if (isLoading) {
     return (
@@ -179,8 +195,8 @@ function PlaceDetailContent({ slug }: { slug: string }) {
           <PlaceHeader
             name={place.name || 'Unknown Place'}
             category={categoryName}
-            rating={place.rating}
-            reviewCount={place.reviewCount}
+            rating={typeof place.rating === 'number' ? place.rating : 0}
+            reviewCount={place.reviewCount ?? 0}
             district={place.location?.district || ''}
             shortDescription={place.shortDescription}
           />
@@ -258,7 +274,11 @@ function PlaceDetailContent({ slug }: { slug: string }) {
 
                   {/* Reviews Tab */}
                   <TabsContent value={TABS.REVIEWS} className="mt-4 sm:mt-6 focus:outline-none">
-                    <ReviewsTab reviews={place.reviews || []} />
+                    <ReviewsTab
+                      businessId={place.id}
+                      reviews={reviewsState}
+                      onChange={handleReviewsChange}
+                    />
                   </TabsContent>
 
                   {/* Location Tab */}

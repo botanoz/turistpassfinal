@@ -83,6 +83,49 @@ export async function GET() {
 
     console.log('Fetched passes count:', data?.length || 0);
 
+    // Collect business ids for review aggregates
+    const businessIds = new Set<string>();
+    data?.forEach((pass) => {
+      pass.businesses?.forEach((pb: any) => {
+        if (pb.business?.id) {
+          businessIds.add(pb.business.id);
+        }
+      });
+    });
+
+    let reviewStats: Record<string, { average: number; count: number }> = {};
+
+    if (businessIds.size > 0) {
+      try {
+        const supabaseAdmin = createAdminClient();
+        const { data: reviews, error: reviewsError } = await supabaseAdmin
+          .from('reviews')
+          .select('business_id, rating')
+          .in('business_id', Array.from(businessIds));
+
+        if (reviewsError) {
+          console.error('Error fetching review data for businesses:', reviewsError);
+        } else {
+          const grouped: Record<string, number[]> = {};
+          (reviews || []).forEach((row: any) => {
+            if (!row.business_id) return;
+            (grouped[row.business_id] ||= []).push(Number(row.rating || 0));
+          });
+
+          Object.entries(grouped).forEach(([bizId, ratings]) => {
+            const count = ratings.length;
+            const avg = count > 0 ? ratings.reduce((s, r) => s + r, 0) / count : 0;
+            reviewStats[bizId] = {
+              average: Number(avg.toFixed(1)),
+              count,
+            };
+          });
+        }
+      } catch (aggError) {
+        console.error('Failed to load review stats (service role missing?):', aggError);
+      }
+    }
+
     // Transform business data to match expected format
     const transformedPasses = data?.map(pass => ({
       ...pass,
@@ -100,19 +143,20 @@ export async function GET() {
             location: {
               address: business.address,
               district: business.district,
-              city: business.city,
-              coordinates: {
-                lat: business.latitude,
-                lng: business.longitude
-              }
-            },
-            images: business.gallery_images || (business.image_url ? [business.image_url] : []),
-            rating: 4.5, // Default rating
-            opening_hours: {}, // Default empty object
-            amenities: [], // Default empty array
-            tags: [], // Default empty array
-            price_range: '$$' // Default price range
-          }
+            city: business.city,
+            coordinates: {
+              lat: business.latitude,
+              lng: business.longitude
+            }
+          },
+          images: business.gallery_images || (business.image_url ? [business.image_url] : []),
+          rating: reviewStats[business.id]?.average ?? 0,
+          reviewCount: reviewStats[business.id]?.count ?? 0,
+          opening_hours: {}, // Default empty object
+          amenities: [], // Default empty array
+          tags: [], // Default empty array
+          price_range: '$$' // Default price range
+        }
         };
       }).filter(Boolean) || []
     })) || [];

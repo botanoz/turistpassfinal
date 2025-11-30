@@ -8,11 +8,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { Star, Clock, MapPin, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { placeCategories } from "@/lib/mockData/placesData";
-import { getAllBusinessesForPlaces, type Business } from "@/lib/services/businessService";
-import { getActivePasses, type Pass } from "@/lib/services/passService";
 
 // Helper function to convert Business to Place format
-function convertBusinessToPlace(business: Business, passIds: string[] = []) {
+function convertBusinessToPlace(business: any, passIds: string[] = []) {
   // Try to get images from business_accounts metadata first, then fallback to gallery_images or image_url
   // Priority: 1. metadata images 2. gallery_images 3. image_url 4. placeholder
   const metadataImages = business.business_accounts?.[0]?.metadata?.profile?.images || [];
@@ -22,14 +20,29 @@ function convertBusinessToPlace(business: Business, passIds: string[] = []) {
   // Use the first available image, or fallback to placeholder
   const mainImageUrl = allImages[0] || business.image_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop';
 
+  const loc = business.location || {};
+  const address = loc.address || business.address || '';
+  const district =
+    address ||
+    loc.district ||
+    business.district ||
+    loc.city ||
+    (typeof business.address === 'string' ? business.address : '') ||
+    'Istanbul';
+  const coords = loc.coordinates || {
+    lat: business.latitude || 41.0082,
+    lng: business.longitude || 28.9784
+  };
+  const openHours = business.openHours || business.opening_hours;
+
   return {
     id: business.id,
     name: business.name,
     slug: business.id,
     description: business.description || '',
     shortDescription: business.short_description || business.description?.substring(0, 150) || '',
-    rating: 4.5,
-    reviewCount: 0,
+    rating: business.rating ?? business.average_rating ?? 0,
+    reviewCount: business.reviewCount ?? business.review_count ?? 0,
     categoryId: business.category.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'),
     passIds: passIds,
     images: [
@@ -41,23 +54,21 @@ function convertBusinessToPlace(business: Business, passIds: string[] = []) {
       }
     ],
     location: {
-      address: business.address || '',
-      district: business.address?.split(',')[0] || 'Istanbul',
-      coordinates: {
-        lat: business.latitude || 41.0082,
-        lng: business.longitude || 28.9784
-      },
+      address,
+      district,
+      coordinates: coords,
       nearbyLandmarks: []
     },
     contact: {},
     openHours: {
-      Monday: '09:00 - 22:00',
-      Tuesday: '09:00 - 22:00',
-      Wednesday: '09:00 - 22:00',
-      Thursday: '09:00 - 22:00',
-      Friday: '09:00 - 22:00',
-      Saturday: '10:00 - 23:00',
-      Sunday: '10:00 - 23:00'
+      ...(openHours || {}),
+      Monday: (openHours && openHours.Monday) || '09:00 - 22:00',
+      Tuesday: (openHours && openHours.Tuesday) || '09:00 - 22:00',
+      Wednesday: (openHours && openHours.Wednesday) || '09:00 - 22:00',
+      Thursday: (openHours && openHours.Thursday) || '09:00 - 22:00',
+      Friday: (openHours && openHours.Friday) || '09:00 - 22:00',
+      Saturday: (openHours && openHours.Saturday) || '10:00 - 23:00',
+      Sunday: (openHours && openHours.Sunday) || '10:00 - 23:00'
     },
     amenities: [],
     tags: [business.category]
@@ -70,7 +81,7 @@ export default function PopularPlaces() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [visiblePlaces, setVisiblePlaces] = useState(8);
   const [places, setPlaces] = useState<any[]>([]);
-  const [passes, setPasses] = useState<Pass[]>([]);
+  const [passes, setPasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const categoryContainerRef = useRef<HTMLDivElement>(null);
 
@@ -85,25 +96,38 @@ export default function PopularPlaces() {
       try {
         setLoading(true);
 
-        // Fetch passes with their businesses
-        const activePasses = await getActivePasses();
+        const response = await fetch('/api/passes/active');
+        const result = await response.json();
+
+        if (!result.success) throw new Error(result.error || 'Failed to load passes');
+
+        const activePasses = result.passes || [];
         setPasses(activePasses);
 
-        // Fetch all businesses
-        const businesses = await getAllBusinessesForPlaces();
-
-        // Create a map of business_id -> pass_ids
+        // Build map of business_id -> pass_ids and consolidate businesses with rating info
         const businessPassMap = new Map<string, string[]>();
-        activePasses.forEach(pass => {
-          pass.businesses?.forEach(pb => {
-            const passIds = businessPassMap.get(pb.business_id) || [];
-            passIds.push(pass.id);
-            businessPassMap.set(pb.business_id, passIds);
+        const businessMap = new Map<string, any>();
+
+        activePasses.forEach((pass: any) => {
+          pass.businesses?.forEach((pb: any) => {
+            const biz = pb.business;
+            if (!biz) return;
+
+            const ids = businessPassMap.get(biz.id) || [];
+            ids.push(pass.id);
+            businessPassMap.set(biz.id, ids);
+
+            // Prefer later entries to keep latest rating/reviewCount
+            businessMap.set(biz.id, {
+              ...biz,
+              rating: biz.rating ?? 0,
+              reviewCount: biz.reviewCount ?? 0,
+              business_accounts: biz.business_accounts, // keep metadata if present
+            });
           });
         });
 
-        // Convert businesses to places with their pass associations
-        const convertedPlaces = businesses.map(business => {
+        const convertedPlaces = Array.from(businessMap.values()).map((business) => {
           const passIds = businessPassMap.get(business.id) || [];
           return convertBusinessToPlace(business, passIds);
         });

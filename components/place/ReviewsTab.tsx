@@ -1,45 +1,161 @@
 // components/place/ReviewsTab.tsx
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Star, Trash2 } from "lucide-react";
 import Image from "next/image";
-import { PlaceReview } from "@/lib/mockData/placesData";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 
 interface ReviewsTabProps {
-  reviews: PlaceReview[];
+  businessId: string;
+  reviews: Review[];
+  onChange?: (payload: { reviews: Review[]; reviewCount: number; averageRating: number }) => void;
 }
 
-export default function ReviewsTab({ reviews }: ReviewsTabProps) {
+type Review = {
+  id: string;
+  userId?: string | null;
+  userName: string;
+  userAvatar?: string;
+  rating: number;
+  comment: string;
+  date: string;
+};
+
+export default function ReviewsTab({ businessId, reviews, onChange }: ReviewsTabProps) {
   const [isWritingReview, setIsWritingReview] = useState(false);
   const [isEditingReview, setIsEditingReview] = useState(false);
   const [newReview, setNewReview] = useState<{ rating: number; comment: string }>({
     rating: 0,
     comment: ''
   });
-  const [userReview, setUserReview] = useState<{
-    id: string;
-    rating: number;
-    comment: string;
-    date: string;
-  } | null>(null);
+  const [userReview, setUserReview] = useState<Review | null>(null);
+  const [reviewList, setReviewList] = useState<Review[]>(reviews);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const supabase = useMemo(() => createClient(), []);
 
-  // Function to handle review submission
-  const handleSubmitReview = () => {
-    const reviewData = {
-      id: userReview?.id || `user-review-${Date.now()}`,
-      rating: newReview.rating,
-      comment: newReview.comment,
-      date: isEditingReview ? userReview?.date || new Date().toISOString() : new Date().toISOString()
+  useEffect(() => {
+    let active = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+      const sessionUser = data.session?.user || null;
+      setCurrentUserId(sessionUser?.id || null);
+      if (sessionUser?.id) {
+        const mine = reviewList.find((r) => r.userId === sessionUser.id);
+        setUserReview(mine || null);
+      } else {
+        setUserReview(null);
+      }
+    });
+
+    return () => {
+      active = false;
     };
-    
-    // Set the review
-    setUserReview(reviewData);
-    
-    // Reset the form state
-    setNewReview({ rating: 0, comment: '' });
-    setIsWritingReview(false);
-    setIsEditingReview(false);
+  }, [supabase, reviewList]);
+
+  useEffect(() => {
+    setReviewList(reviews);
+    if (currentUserId) {
+      const mine = reviews.find((r) => r.userId === currentUserId);
+      setUserReview(mine || null);
+    } else {
+      setUserReview(null);
+    }
+  }, [reviews, currentUserId]);
+
+  const displayedReviews = useMemo(() => {
+    return currentUserId ? reviewList.filter((r) => r.userId !== currentUserId) : reviewList;
+  }, [reviewList, currentUserId]);
+
+  const handleSubmitReview = async () => {
+    if (!currentUserId) {
+      toast.error('Please log in to write a review.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/businesses/${businessId}/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating: newReview.rating, comment: newReview.comment })
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to submit review');
+      }
+
+      const updatedReviews = (() => {
+        const existingIdx = reviewList.findIndex((r) => r.userId === json.review.userId);
+        if (existingIdx !== -1) {
+          const clone = [...reviewList];
+          clone[existingIdx] = json.review;
+          return clone;
+        }
+        return [json.review, ...reviewList];
+      })();
+
+      setReviewList(updatedReviews);
+      setUserReview(json.review);
+      onChange?.({
+        reviews: updatedReviews,
+        reviewCount: json.reviewCount,
+        averageRating: json.averageRating
+      });
+      setNewReview({ rating: 0, comment: '' });
+      setIsWritingReview(false);
+      setIsEditingReview(false);
+      toast.success('Review saved');
+    } catch (err: any) {
+      console.error('Review submit failed:', err);
+      toast.error(err.message || 'Failed to submit review');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteReview = async () => {
+    if (!currentUserId || !userReview) {
+      toast.error('Please log in to delete your review.');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete your review?')) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/businesses/${businessId}/reviews`, {
+        method: 'DELETE'
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to delete review');
+      }
+
+      const updatedReviews = reviewList.filter((r) => r.userId !== currentUserId);
+      setReviewList(updatedReviews);
+      setUserReview(null);
+      onChange?.({
+        reviews: updatedReviews,
+        reviewCount: json.reviewCount,
+        averageRating: json.averageRating
+      });
+      toast.success('Review deleted');
+    } catch (err: any) {
+      console.error('Review delete failed:', err);
+      toast.error(err.message || 'Failed to delete review');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -104,7 +220,7 @@ export default function ReviewsTab({ reviews }: ReviewsTabProps) {
               </Button>
               <Button
                 onClick={handleSubmitReview}
-                disabled={newReview.rating === 0 || !newReview.comment.trim()}
+                disabled={newReview.rating === 0 || !newReview.comment.trim() || isSubmitting}
               >
                 {isEditingReview ? 'Update Review' : 'Submit Review'}
               </Button>
@@ -134,7 +250,13 @@ export default function ReviewsTab({ reviews }: ReviewsTabProps) {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => setIsWritingReview(true)}
+                onClick={() => {
+                  if (!currentUserId) {
+                    toast.error('Please log in to write a review.');
+                    return;
+                  }
+                  setIsWritingReview(true);
+                }}
               >
                 <MessageCircle className="h-4 w-4 mr-2" />
                 Write Review
@@ -169,15 +291,12 @@ export default function ReviewsTab({ reviews }: ReviewsTabProps) {
                     {new Date(userReview.date).toLocaleDateString()}
                   </span>
                   
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="ml-auto h-8 w-8 text-destructive hover:bg-destructive/10"
-                    onClick={() => {
-                      if (window.confirm('Are you sure you want to delete your review?')) {
-                        setUserReview(null);
-                      }
-                    }}
+                    onClick={handleDeleteReview}
+                    disabled={isSubmitting}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -189,10 +308,10 @@ export default function ReviewsTab({ reviews }: ReviewsTabProps) {
         )}
         
         {/* Other Reviews */}
-        {reviews.length > 0 ? (
+        {displayedReviews.length > 0 ? (
           <div className="space-y-6">
             {/* Show all other reviews */}
-            {reviews.map((review) => (
+            {displayedReviews.map((review) => (
               <div key={review.id} className="border-b pb-6 last:border-b-0">
                 <div className="flex items-start gap-4">
                   <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center overflow-hidden">

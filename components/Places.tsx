@@ -179,7 +179,7 @@ function PlacesContent() {
         type: 'gallery'
       })) : [],
       rating: business.rating || 0,
-      reviewCount: 0,
+      reviewCount: business.reviewCount || business.review_count || 0,
       location: {
         district: business.location?.district || business.location?.city || '',
         address: business.location?.address || '',

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 export async function GET(
   request: NextRequest,
@@ -8,6 +8,7 @@ export async function GET(
   try {
     const { id } = await context.params;
     const supabase = await createClient();
+    const supabaseAdmin = createAdminClient();
 
     console.log('Fetching business with id:', id);
 
@@ -32,13 +33,77 @@ export async function GET(
       .eq('id', id)
       .single();
 
-    if (businessError) {
+    if (businessError || !business) {
       console.error('Error fetching business:', businessError);
-      return NextResponse.json({
-        success: false,
-        error: 'Business not found'
-      }, { status: 404 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Business not found'
+        },
+        { status: 404 }
+      );
     }
+
+    // Fetch reviews with service role to bypass RLS and build customer display info
+    const { data: reviewsData, error: reviewsError } = await supabaseAdmin
+      .from('reviews')
+      .select('id, business_id, user_id, rating, comment, created_at')
+      .eq('business_id', id)
+      .order('created_at', { ascending: false });
+
+    if (reviewsError) {
+      console.error('Error fetching business reviews:', reviewsError);
+    }
+
+    const userIds = Array.from(
+      new Set((reviewsData || []).map((r) => r.user_id).filter(Boolean))
+    ) as string[];
+
+    let profilesMap: Record<string, { first_name?: string | null; last_name?: string | null; avatar_url?: string | null }> = {};
+
+    if (userIds.length > 0) {
+      const { data: profiles, error: profilesError } = await supabaseAdmin
+        .from('customer_profiles')
+        .select('id, first_name, last_name, avatar_url')
+        .in('id', userIds);
+
+      if (profilesError) {
+        console.error('Error fetching review authors:', profilesError);
+      } else {
+        profiles?.forEach((p) => {
+          profilesMap[p.id] = {
+            first_name: p.first_name,
+            last_name: p.last_name,
+            avatar_url: p.avatar_url,
+          };
+        });
+      }
+    }
+
+    const reviewCount = reviewsData?.length ?? 0;
+    const averageRating =
+      reviewCount > 0
+        ? Number(
+            ((reviewsData || []).reduce((sum, r) => sum + (r.rating || 0), 0) / reviewCount).toFixed(1)
+          )
+        : 0;
+
+    const reviews = (reviewsData || []).map((r) => {
+      const profile = r.user_id ? profilesMap[r.user_id] : undefined;
+      const fullName = profile
+        ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+        : '';
+
+      return {
+        id: r.id,
+        userId: r.user_id,
+        userName: fullName || 'TuristPass User',
+        userAvatar: profile?.avatar_url || '',
+        rating: r.rating,
+        comment: r.comment,
+        date: r.created_at,
+      };
+    });
 
     // Get passes this business is included in
     const { data: passBusinesses, error: passError } = await supabase
@@ -76,8 +141,8 @@ export async function GET(
           type: 'gallery'
         }))
       ],
-      rating: 4.5, // Default rating
-      reviewCount: 0, // Default review count
+      rating: averageRating,
+      reviewCount,
       location: {
         district: business.district || business.city || '',
         address: business.address || '',
@@ -107,7 +172,7 @@ export async function GET(
       menu: [],
       needToKnowInfo: undefined,
       announcements: [],
-      reviews: [],
+      reviews,
       branches: []
     };
 
