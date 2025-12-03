@@ -80,17 +80,7 @@ function prepareFeaturedAttractions(passId: string) {
 
 // Convert database pass to mock format
 function convertDatabasePassToMockFormat(dbPass: DatabasePass): any {
-  // Debug logs (only in development)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔄 Converting pass:', dbPass.name);
-    console.log('📊 Pricing data:', dbPass.pricing);
-  }
-
   const adultPricing = dbPass.pricing?.find(p => p.age_group === 'adult' && p.days === 1);
-
-  if (process.env.NODE_ENV === 'development') {
-    console.log('💵 Adult pricing found:', adultPricing);
-  }
 
   // Group pricing by days
   const pricingByDays = new Map<number, { adult?: number; child?: number }>();
@@ -136,10 +126,6 @@ function convertDatabasePassToMockFormat(dbPass: DatabasePass): any {
       const cheapestAdultPricing = adultPricings.sort((a, b) => a.price - b.price)[0];
       displayPrice = cheapestAdultPricing.price;
       displayDays = cheapestAdultPricing.days;
-
-      if (process.env.NODE_ENV === 'development' && cheapestAdultPricing !== adultPricing) {
-        console.log('💰 Using cheapest adult pricing:', displayDays, 'days for $' + displayPrice);
-      }
     }
   }
 
@@ -149,12 +135,7 @@ function convertDatabasePassToMockFormat(dbPass: DatabasePass): any {
     displayDays = adultPricing.days;
   }
 
-  // If still no price, log warning but continue with fallback
-  if (displayPrice === 99 && (!dbPass.pricing || dbPass.pricing.length === 0)) {
-    console.warn('⚠️ No pricing found for pass:', dbPass.name, '- using fallback price');
-  }
-
-  const result = {
+  return {
     id: dbPass.id,
     title: dbPass.name,
     description: dbPass.short_description || dbPass.description,
@@ -170,13 +151,8 @@ function convertDatabasePassToMockFormat(dbPass: DatabasePass): any {
     passOptions,
     discount: undefined,
     subtitle: dbPass.hero_subtitle || '',
-    businesses: dbPass.businesses || [] // Add businesses for image strip
+    businesses: dbPass.businesses || []
   };
-
-  if (process.env.NODE_ENV === 'development') {
-    console.log('✅ Final pass object:', result);
-  }
-  return result;
 }
 
 export default function PopularPasses() {
@@ -212,23 +188,18 @@ export default function PopularPasses() {
     async function loadPasses() {
       try {
         setIsLoading(true);
-        console.log('🔄 Fetching passes from database...');
-
         const response = await fetch('/api/passes/active');
         const result = await response.json();
 
-        console.log('📦 API Response:', result);
-
         if (result.success) {
-          console.log('📊 Raw passes data:', result.passes);
           const convertedPasses = result.passes.map(convertDatabasePassToMockFormat);
-          console.log('✅ Converted passes:', convertedPasses);
           setPasses(convertedPasses);
-        } else {
-          console.error('❌ Failed to load passes:', result.error);
         }
       } catch (error) {
-        console.error('❌ Error loading passes:', error);
+        // Silently fail - passes will remain empty array
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error loading passes:', error);
+        }
       } finally {
         setIsLoading(false);
       }

@@ -24,6 +24,7 @@ export async function GET() {
         pass_type,
         activation_code,
         pin_code,
+        activation_date,
         expiry_date,
         status,
         usage_count,
@@ -46,10 +47,19 @@ export async function GET() {
 
     // Transform passes for frontend
     const transformedPasses = (purchasedPasses || []).map(pass => {
-      const now = new Date();
-      const expiryDate = new Date(pass.expiry_date);
-      const isExpired = expiryDate < now;
-      const isMaxUsageReached = pass.max_usage && pass.usage_count >= pass.max_usage;
+      // For pending_activation passes, expiry_date is null - don't check expiration
+      let status = pass.status;
+
+      if (pass.status !== 'pending_activation' && pass.expiry_date) {
+        const now = new Date();
+        const expiryDate = new Date(pass.expiry_date);
+        const isExpired = expiryDate < now;
+        const isMaxUsageReached = pass.max_usage && pass.usage_count >= pass.max_usage;
+
+        if (isExpired || isMaxUsageReached) {
+          status = 'expired';
+        }
+      }
 
       return {
         id: pass.id,
@@ -59,11 +69,13 @@ export async function GET() {
         activationCode: pass.activation_code,
         pinCode: pass.pin_code,
         expiryDate: pass.expiry_date,
-        status: isExpired || isMaxUsageReached ? 'expired' : pass.status,
+        activationDate: pass.activation_date,
+        status: status,
         usageCount: pass.usage_count || 0,
         maxUsage: pass.max_usage,
         order: pass.order,
-        purchasedAt: pass.created_at
+        purchasedAt: pass.created_at,
+        created_at: pass.created_at
       };
     });
 

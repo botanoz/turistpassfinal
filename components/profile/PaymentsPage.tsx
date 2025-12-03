@@ -57,6 +57,9 @@ interface Order {
   payment_method: string;
   created_at: string;
   completed_at?: string;
+  invoice_url?: string | null;
+  receipt_url?: string | null;
+  has_pending_refund?: boolean;
   order_items: OrderItem[];
 }
 
@@ -197,6 +200,10 @@ export default function PaymentsPage() {
 
   const handleDownloadInvoice = (orderId: string) => {
     window.open(`/api/customer/invoice/${orderId}?print=true`, '_blank');
+  };
+
+  const handleDownloadReceipt = (orderId: string) => {
+    window.open(`/api/customer/receipt/${orderId}?print=true`, '_blank');
   };
 
   const handleRequestRefund = (order: Order) => {
@@ -451,15 +458,30 @@ export default function PaymentsPage() {
 
                       {/* Actions */}
                       <div className="flex flex-wrap gap-2 pt-2">
-                        <Button variant="outline" size="sm" onClick={() => handleDownloadInvoice(order.id)}>
-                          <Download className="h-4 w-4 mr-2" />
-                          Download Invoice
-                        </Button>
-                        {order.status === 'completed' && order.payment_status === 'completed' && (
-                          <Button variant="outline" size="sm" onClick={() => handleRequestRefund(order)}>
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            Request Refund
+                        {order.invoice_url && (
+                          <Button variant="outline" size="sm" onClick={() => handleDownloadInvoice(order.id)}>
+                            <FileText className="h-4 w-4 mr-2" />
+                            Invoice
                           </Button>
+                        )}
+                        {order.receipt_url && (
+                          <Button variant="outline" size="sm" onClick={() => handleDownloadReceipt(order.id)}>
+                            <Receipt className="h-4 w-4 mr-2" />
+                            Receipt
+                          </Button>
+                        )}
+                        {order.status === 'completed' && order.payment_status === 'completed' && (
+                          order.has_pending_refund ? (
+                            <Badge variant="secondary" className="px-3 py-1 h-9 flex items-center gap-2">
+                              <Clock className="h-4 w-4" />
+                              Refund Request Pending
+                            </Badge>
+                          ) : (
+                            <Button variant="outline" size="sm" onClick={() => handleRequestRefund(order)}>
+                              <RotateCcw className="h-4 w-4 mr-2" />
+                              Request Refund
+                            </Button>
+                          )
                         )}
                         <Button variant="outline" size="sm" onClick={() => handleOpenSupportTicket(order)}>
                           <MessageSquare className="h-4 w-4 mr-2" />

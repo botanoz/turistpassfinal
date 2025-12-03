@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
         payment_status,
         created_at,
         completed_at,
+        invoice_url,
+        receipt_url,
         order_items (
           id,
           pass_id,
@@ -63,9 +65,33 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Get pending refund requests for these orders
+    const orderIds = (orders || []).map(o => o.id);
+    let pendingRefunds: Record<string, boolean> = {};
+
+    if (orderIds.length > 0) {
+      const { data: refundRequests } = await supabase
+        .from('refund_requests')
+        .select('order_id, status')
+        .in('order_id', orderIds)
+        .in('status', ['pending', 'under_review']);
+
+      if (refundRequests) {
+        refundRequests.forEach(req => {
+          pendingRefunds[req.order_id] = true;
+        });
+      }
+    }
+
+    // Add has_pending_refund flag to each order
+    const ordersWithRefundStatus = (orders || []).map(order => ({
+      ...order,
+      has_pending_refund: pendingRefunds[order.id] || false
+    }));
+
     return NextResponse.json({
       success: true,
-      orders: orders || [],
+      orders: ordersWithRefundStatus,
     });
   } catch (error: any) {
     console.error('Error in GET /api/customer/orders:', error);

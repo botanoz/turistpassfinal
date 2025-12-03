@@ -1,0 +1,81 @@
+-- Function to activate a pass
+CREATE OR REPLACE FUNCTION activate_purchased_pass(
+  p_pass_id UUID,
+  p_customer_id UUID
+)
+RETURNS TABLE (
+  pass_id UUID,
+  activation_date TIMESTAMPTZ,
+  expiry_date TIMESTAMPTZ,
+  status TEXT,
+  message TEXT
+) AS $$
+DECLARE
+  v_pass RECORD;
+  v_pass_duration INTERVAL;
+  v_activation_ts TIMESTAMPTZ;
+  v_expiry_ts TIMESTAMPTZ;
+BEGIN
+  -- Get the pass
+  SELECT pp.*
+  INTO v_pass
+  FROM purchased_passes pp
+  WHERE pp.id = p_pass_id
+    AND pp.customer_id = p_customer_id
+  FOR UPDATE; -- Lock the row
+
+  -- Check if pass exists
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Pass not found or does not belong to customer';
+  END IF;
+
+  -- Check if pass is in correct status
+  IF v_pass.status != 'pending_activation' THEN
+    RAISE EXCEPTION 'Pass cannot be activated. Current status: %', v_pass.status;
+  END IF;
+
+  -- Calculate duration from pass_type string
+  IF v_pass.pass_type IS NOT NULL THEN
+    -- Extract days from pass_type like "3-day-adult" or "1-day-child"
+    DECLARE
+      type_days INTEGER;
+    BEGIN
+      type_days := SUBSTRING(v_pass.pass_type FROM '(\d+)-day')::INTEGER;
+      IF type_days IS NOT NULL THEN
+        v_pass_duration := make_interval(days => type_days);
+      ELSE
+        -- Default to 3 days if pattern doesn't match
+        v_pass_duration := INTERVAL '3 days';
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      v_pass_duration := INTERVAL '3 days';
+    END;
+  ELSE
+    -- Default to 3 days if no pass_type specified
+    v_pass_duration := INTERVAL '3 days';
+  END IF;
+
+  -- Set activation timestamp
+  v_activation_ts := NOW();
+  v_expiry_ts := v_activation_ts + v_pass_duration;
+
+  -- Update the pass
+  UPDATE purchased_passes
+  SET
+    status = 'active',
+    activation_date = v_activation_ts,
+    expiry_date = v_expiry_ts,
+    updated_at = NOW()
+  WHERE id = p_pass_id;
+
+  -- Return the activated pass info
+  RETURN QUERY
+  SELECT
+    p_pass_id,
+    v_activation_ts,
+    v_expiry_ts,
+    'active'::TEXT,
+    'Pass activated successfully'::TEXT;
+
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

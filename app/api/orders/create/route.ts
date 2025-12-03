@@ -235,10 +235,9 @@ export async function POST(request: Request) {
     }
 
     // Create purchased passes with QR and PIN codes
+    // NOTE: Passes start as 'pending_activation' - customer must manually activate them
+    // This allows purchasing passes in advance without starting the timer immediately
     const purchasedPasses = [];
-    const validityDays = Number(days) || 0; // Pass valid for selected number of days
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + validityDays);
 
     // Generate passes for adults
     for (let i = 0; i < adultCount; i++) {
@@ -248,12 +247,14 @@ export async function POST(request: Request) {
       purchasedPasses.push({
         customer_id: user.id,
         order_id: order.id,
+        pass_id: passId, // Link to passes table for duration lookup
         pass_name: passName,
         pass_type: `${days}-day-adult`,
         activation_code: qrCode || `PASS-${Date.now()}-${i}`,
         pin_code: pinCode || String(Math.floor(100000 + Math.random() * 900000)),
-        expiry_date: expiryDate.toISOString(),
-        status: 'active'
+        activation_date: null, // Will be set when customer activates
+        expiry_date: null, // Will be calculated when customer activates
+        status: 'pending_activation' // Customer must activate to start timer
       });
     }
 
@@ -265,12 +266,14 @@ export async function POST(request: Request) {
       purchasedPasses.push({
         customer_id: user.id,
         order_id: order.id,
+        pass_id: passId, // Link to passes table for duration lookup
         pass_name: passName,
         pass_type: `${days}-day-child`,
         activation_code: qrCode || `PASS-${Date.now()}-${i}`,
         pin_code: pinCode || String(Math.floor(100000 + Math.random() * 900000)),
-        expiry_date: expiryDate.toISOString(),
-        status: 'active'
+        activation_date: null, // Will be set when customer activates
+        expiry_date: null, // Will be calculated when customer activates
+        status: 'pending_activation' // Customer must activate to start timer
       });
     }
 

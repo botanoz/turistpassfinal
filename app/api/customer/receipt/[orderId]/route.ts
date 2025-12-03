@@ -33,7 +33,7 @@ export async function GET(
         total_amount,
         currency,
         created_at,
-        invoice_url,
+        receipt_url,
         customer_profiles!orders_customer_id_fkey (
           first_name,
           last_name,
@@ -65,23 +65,23 @@ export async function GET(
       );
     }
 
-    // If admin has uploaded an invoice, redirect to that URL
-    if (order.invoice_url) {
+    // If admin has uploaded a receipt, redirect to that URL
+    if (order.receipt_url) {
       // For uploaded documents, redirect to the storage URL
-      return NextResponse.redirect(new URL(order.invoice_url), 302);
+      return NextResponse.redirect(new URL(order.receipt_url), 302);
     }
 
-    // Generate HTML invoice
-    const invoiceHTML = generateInvoiceHTML(order);
+    // Generate HTML receipt (same as invoice but labeled as receipt)
+    const receiptHTML = generateReceiptHTML(order);
 
     // Return HTML that can be printed as PDF
-    return new NextResponse(invoiceHTML, {
+    return new NextResponse(receiptHTML, {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
       },
     });
   } catch (error: any) {
-    console.error('Error generating invoice:', error);
+    console.error('Error generating receipt:', error);
     return NextResponse.json(
       { success: false, error: error.message || 'Internal server error' },
       { status: 500 }
@@ -89,7 +89,7 @@ export async function GET(
   }
 }
 
-function generateInvoiceHTML(order: any): string {
+function generateReceiptHTML(order: any): string {
   const customer = order.customer_profiles;
   const items = order.order_items || [];
 
@@ -118,7 +118,7 @@ function generateInvoiceHTML(order: any): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Invoice - ${order.order_number}</title>
+  <title>Receipt - ${order.order_number}</title>
   <style>
     * {
       margin: 0;
@@ -134,7 +134,7 @@ function generateInvoiceHTML(order: any): string {
       background: #f5f5f5;
     }
 
-    .invoice-container {
+    .receipt-container {
       max-width: 800px;
       margin: 0 auto;
       background: white;
@@ -149,11 +149,11 @@ function generateInvoiceHTML(order: any): string {
       align-items: start;
       margin-bottom: 40px;
       padding-bottom: 30px;
-      border-bottom: 3px solid #3b82f6;
+      border-bottom: 3px solid #10b981;
     }
 
     .company-info h1 {
-      color: #3b82f6;
+      color: #10b981;
       font-size: 32px;
       margin-bottom: 8px;
     }
@@ -163,17 +163,17 @@ function generateInvoiceHTML(order: any): string {
       font-size: 14px;
     }
 
-    .invoice-info {
+    .receipt-info {
       text-align: right;
     }
 
-    .invoice-info h2 {
+    .receipt-info h2 {
       color: #333;
       font-size: 24px;
       margin-bottom: 8px;
     }
 
-    .invoice-info p {
+    .receipt-info p {
       color: #666;
       font-size: 14px;
       margin-bottom: 4px;
@@ -238,12 +238,6 @@ function generateInvoiceHTML(order: any): string {
       background: #f8fafc;
     }
 
-    .item-description {
-      color: #666;
-      font-size: 12px;
-      margin-top: 4px;
-    }
-
     .totals {
       margin-left: auto;
       width: 300px;
@@ -257,12 +251,12 @@ function generateInvoiceHTML(order: any): string {
     }
 
     .total-row.final {
-      border-top: 2px solid #3b82f6;
+      border-top: 2px solid #10b981;
       margin-top: 8px;
       padding-top: 12px;
       font-size: 18px;
       font-weight: 700;
-      color: #3b82f6;
+      color: #10b981;
     }
 
     .status-badge {
@@ -284,11 +278,6 @@ function generateInvoiceHTML(order: any): string {
       color: #92400e;
     }
 
-    .status-cancelled {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
     .footer {
       margin-top: 50px;
       padding-top: 30px;
@@ -308,7 +297,7 @@ function generateInvoiceHTML(order: any): string {
         background: white;
       }
 
-      .invoice-container {
+      .receipt-container {
         box-shadow: none;
         padding: 40px;
       }
@@ -320,7 +309,7 @@ function generateInvoiceHTML(order: any): string {
   </style>
 </head>
 <body>
-  <div class="invoice-container">
+  <div class="receipt-container">
     <div class="header">
       <div class="company-info">
         <h1>TuristPass</h1>
@@ -328,9 +317,9 @@ function generateInvoiceHTML(order: any): string {
         <p>info@turistpass.com</p>
         <p>+90 (212) 123 45 67</p>
       </div>
-      <div class="invoice-info">
-        <h2>INVOICE</h2>
-        <p><strong>Invoice Number:</strong> ${order.order_number}</p>
+      <div class="receipt-info">
+        <h2>RECEIPT</h2>
+        <p><strong>Receipt Number:</strong> ${order.order_number}</p>
         <p><strong>Date:</strong> ${formatDate(order.created_at)}</p>
         <p><strong>Payment Status:</strong> <span class="status-badge status-${order.payment_status}">${order.payment_status}</span></p>
       </div>
@@ -338,7 +327,7 @@ function generateInvoiceHTML(order: any): string {
 
     <div class="details-section">
       <div class="detail-box">
-        <h3>Bill To</h3>
+        <h3>Customer</h3>
         <p><strong>${customer.first_name} ${customer.last_name}</strong></p>
         <p>${customer.email}</p>
         ${customer.phone ? `<p>${customer.phone}</p>` : ''}
@@ -377,14 +366,14 @@ function generateInvoiceHTML(order: any): string {
 
     <div class="totals">
       <div class="total-row final">
-        <span>Total Amount</span>
+        <span>Total Paid</span>
         <span>${formatCurrency(order.total_amount, order.currency)}</span>
       </div>
     </div>
 
     <div class="footer">
-      <p><strong>Thank you for choosing TuristPass!</strong></p>
-      <p>For questions about this invoice, please contact us at billing@turistpass.com</p>
+      <p><strong>Thank you for your payment!</strong></p>
+      <p>For questions about this receipt, please contact us at billing@turistpass.com</p>
       <p>TuristPass - Making Istanbul Tourism Better</p>
     </div>
   </div>
