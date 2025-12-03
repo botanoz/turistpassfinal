@@ -51,6 +51,8 @@ async function getBusinessContext(userId: string) {
           registration_number,
           established,
           website,
+          image_url,
+          gallery_images,
           created_at,
           updated_at
         )
@@ -87,6 +89,24 @@ export async function GET() {
 
     const { account } = await getBusinessContext(user.id);
 
+    // Merge database images with metadata images
+    const business = account.business as any;
+    const dbImages: string[] = [];
+    if (business?.image_url) {
+      dbImages.push(business.image_url);
+    }
+    if (business?.gallery_images && Array.isArray(business.gallery_images)) {
+      dbImages.push(...business.gallery_images);
+    }
+
+    const metadata = {
+      ...account.metadata,
+      profile: {
+        ...(account.metadata?.profile ?? {}),
+        images: dbImages.length > 0 ? dbImages : (account.metadata?.profile?.images ?? [])
+      }
+    };
+
     return NextResponse.json({
       success: true,
       account: {
@@ -97,7 +117,7 @@ export async function GET() {
         contact_email: account.contact_email,
         contact_phone: account.contact_phone,
         status: account.status,
-        metadata: account.metadata ?? {},
+        metadata,
       },
       business: account.business,
     });
@@ -160,6 +180,19 @@ export async function PUT(request: NextRequest) {
     }
     if (payload.website !== undefined) {
       businessUpdates.website = payload.website;
+    }
+
+    // Handle images - save to database columns
+    if (payload.metadata?.images !== undefined) {
+      const images = payload.metadata.images as string[];
+      // First image goes to image_url, rest go to gallery_images
+      if (images.length > 0) {
+        businessUpdates.image_url = images[0] || null;
+        businessUpdates.gallery_images = images.length > 1 ? images.slice(1) : [];
+      } else {
+        businessUpdates.image_url = null;
+        businessUpdates.gallery_images = [];
+      }
     }
 
     if (Object.keys(businessUpdates).length > 0) {

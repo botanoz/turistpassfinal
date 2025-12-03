@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Ticket, CheckCircle, Info, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { PassData } from "@/lib/mockData/passesData";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface PassInfoProps {
   passIds: string[];
@@ -38,23 +45,35 @@ export default function PassInfo({
             </div>
             
             <h3 className="text-lg font-semibold mb-2">
-              Included in {selectedPass?.title || 'Our Passes'}
+              Included in These Passes
             </h3>
-            
-            {/* Eğer birden fazla pass varsa, pass seçici göster */}
-            {passIds.length > 1 && (
-              <div className="flex justify-center gap-2 mb-4">
-                {passIds.map(passId => (
-                  <Button 
-                    key={passId}
-                    variant={selectedPassId === passId ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedPassId(passId)}
-                    className="px-3"
-                  >
-                    {passes[passId]?.title?.replace('Istanbul ', '')}
-                  </Button>
-                ))}
+
+            {/* Eğer birden fazla pass varsa, dropdown göster */}
+            {passIds.length > 1 ? (
+              <div className="mb-4">
+                <Select
+                  value={selectedPassId || defaultPassId}
+                  onValueChange={setSelectedPassId}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a pass">
+                      {selectedPass?.title || 'Select a pass'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {passIds.map(passId => (
+                      <SelectItem key={passId} value={passId}>
+                        {passes[passId]?.title || passId}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="mb-2">
+                <Badge variant="secondary" className="text-sm">
+                  {selectedPass?.title}
+                </Badge>
               </div>
             )}
             

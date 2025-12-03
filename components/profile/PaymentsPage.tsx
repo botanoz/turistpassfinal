@@ -43,6 +43,7 @@ import {
 import Link from "next/link";
 import { format } from "date-fns";
 import { enUS } from "date-fns/locale";
+import { toast } from "sonner";
 
 interface Order {
   id: string;
@@ -128,7 +129,6 @@ export default function PaymentsPage() {
   const [refundForm, setRefundForm] = useState({
     reasonType: "",
     reasonText: "",
-    requestedAmount: 0,
   });
 
   // Support ticket form
@@ -204,7 +204,6 @@ export default function PaymentsPage() {
     setRefundForm({
       reasonType: "",
       reasonText: "",
-      requestedAmount: order.total_amount,
     });
     setIsRefundDialogOpen(true);
   };
@@ -233,7 +232,7 @@ export default function PaymentsPage() {
           orderId: selectedOrder.id,
           reasonType: refundForm.reasonType,
           reasonText: refundForm.reasonText,
-          requestedAmount: refundForm.requestedAmount,
+          requestedAmount: selectedOrder.total_amount, // Auto-use full order amount
         }),
       });
 
@@ -242,13 +241,22 @@ export default function PaymentsPage() {
       if (data.success) {
         setIsRefundDialogOpen(false);
         await loadData(); // Reload data
-        alert('Refund request submitted successfully!');
+        toast.success('Refund Request Submitted', {
+          description: 'Your refund request has been received and is being reviewed by our team. We will notify you once it has been processed.',
+          duration: 5000,
+        });
       } else {
-        alert(data.error || 'Failed to submit refund request');
+        toast.error('Failed to Submit Refund Request', {
+          description: data.error || 'Please try again or contact support.',
+          duration: 5000,
+        });
       }
     } catch (error) {
       console.error('Error submitting refund:', error);
-      alert('An error occurred. Please try again.');
+      toast.error('Error', {
+        description: 'An error occurred. Please try again.',
+        duration: 5000,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -277,13 +285,22 @@ export default function PaymentsPage() {
       if (data.success) {
         setIsSupportDialogOpen(false);
         await loadData(); // Reload data
-        alert('Support ticket created successfully!');
+        toast.success('Support Request Created', {
+          description: 'Your support request has been created. Our team will respond shortly.',
+          duration: 5000,
+        });
       } else {
-        alert(data.error || 'Failed to create support ticket');
+        toast.error('Failed to Create Support Request', {
+          description: data.error || 'Please try again or contact support.',
+          duration: 5000,
+        });
       }
     } catch (error) {
       console.error('Error creating ticket:', error);
-      alert('An error occurred. Please try again.');
+      toast.error('Error', {
+        description: 'An error occurred. Please try again.',
+        duration: 5000,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -336,33 +353,6 @@ export default function PaymentsPage() {
     );
   }
 
-  const stats = [
-    {
-      label: "Total Orders",
-      value: orders.length.toString(),
-      icon: Receipt,
-      color: "text-blue-600",
-    },
-    {
-      label: "Total Spent",
-      value: formatCurrency(
-        orders.reduce((sum, o) => sum + o.total_amount, 0),
-        orders[0]?.currency || 'TRY'
-      ),
-      icon: DollarSign,
-      color: "text-green-600",
-    },
-    {
-      label: "Active Requests",
-      value: (
-        refundRequests.filter(r => ['pending', 'under_review'].includes(r.status)).length +
-        supportTickets.filter(t => ['open', 'in_progress'].includes(t.status)).length
-      ).toString(),
-      icon: AlertCircle,
-      color: "text-orange-600",
-    },
-  ];
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-background py-8 px-4">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -376,25 +366,6 @@ export default function PaymentsPage() {
             <h1 className="text-3xl font-bold">Payments & Billing</h1>
             <p className="text-muted-foreground">View and manage your orders</p>
           </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid gap-4 md:grid-cols-3">
-          {stats.map((stat) => (
-            <Card key={stat.label}>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className={`p-3 rounded-lg bg-muted ${stat.color}`}>
-                    <stat.icon className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{stat.value}</p>
-                    <p className="text-sm text-muted-foreground">{stat.label}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
         </div>
 
         {/* Tabs */}
@@ -627,14 +598,12 @@ export default function PaymentsPage() {
                 />
               </div>
 
-              <div>
-                <Label>Requested Amount</Label>
-                <Input
-                  type="number"
-                  value={refundForm.requestedAmount}
-                  onChange={(e) => setRefundForm({ ...refundForm, requestedAmount: parseFloat(e.target.value) })}
-                  max={selectedOrder?.total_amount}
-                />
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Refund Amount:</span>
+                  <span className="text-lg font-bold">{formatCurrency(selectedOrder?.total_amount || 0, selectedOrder?.currency)}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Full order amount will be refunded</p>
               </div>
             </div>
 

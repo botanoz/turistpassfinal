@@ -128,9 +128,9 @@ export default function Navbar() {
         label: "Welcome", 
         icon: Home
       },
-      { 
-        href: isHomePage ? "#passes-section" : "/#passes-section", 
-        label: "S&F Passes", 
+      {
+        href: "/passes",
+        label: "S&F Passes",
         icon: Ticket
       },
       { 

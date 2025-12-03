@@ -61,10 +61,15 @@ export async function GET(request: NextRequest) {
         pass_delivered_at,
         first_used_at,
         cancelled_at,
+        invoice_url,
+        receipt_url,
+        notes,
+        admin_notes,
         customer_profiles (
           first_name,
           last_name,
-          email
+          email,
+          phone
         ),
         order_items (
           id,
@@ -138,8 +143,20 @@ export async function GET(request: NextRequest) {
       totalRevenue: Number(stats.total_revenue)
     };
 
+    // Format customer names
+    const formattedOrders = filteredOrders.map((order: any) => ({
+      ...order,
+      customer_profiles: order.customer_profiles ? {
+        full_name: `${order.customer_profiles.first_name || ''} ${order.customer_profiles.last_name || ''}`.trim(),
+        email: order.customer_profiles.email,
+        phone: order.customer_profiles.phone
+      } : null,
+      purchased_passes: order.order_items || []
+    }));
+
     return NextResponse.json({
-      orders: filteredOrders,
+      success: true,
+      orders: formattedOrders,
       stats: formattedStats,
       currency: resolvedCurrency,
       pagination: {

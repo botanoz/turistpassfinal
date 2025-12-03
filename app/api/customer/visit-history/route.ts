@@ -27,6 +27,8 @@ export async function GET() {
         review,
         status,
         would_recommend,
+        purchased_pass_id,
+        business_id,
         businesses!venue_visits_business_id_fkey(
           id,
           name,
@@ -34,7 +36,7 @@ export async function GET() {
           image_url,
           address
         ),
-        purchased_passes!venue_visits_pass_id_fkey(
+        purchased_passes!venue_visits_purchased_pass_id_fkey(
           id,
           pass_name,
           pass_type

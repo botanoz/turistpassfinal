@@ -250,7 +250,18 @@ export default function PassSelectionSidebar({
 
   // Calculate subtotal and discount amounts for display
   const subtotal = adultCount * selectedOption.adultPrice + childCount * selectedOption.childPrice;
-  const discountAmount = discount ? (subtotal * discount.percentage) / 100 : 0;
+
+  // Determine which discount to apply (code takes priority)
+  let appliedDiscount = 0;
+  let discountSource: 'code' | 'pass' | null = null;
+
+  if (codeValidation?.valid && codeValidation.discountAmount) {
+    appliedDiscount = codeValidation.discountAmount;
+    discountSource = 'code';
+  } else if (discount && discount.percentage > 0) {
+    appliedDiscount = (subtotal * discount.percentage) / 100;
+    discountSource = 'pass';
+  }
 
   if (!isOpen) return null;
 
@@ -483,17 +494,15 @@ export default function PassSelectionSidebar({
                   <span><FormattedPrice price={subtotal} /></span>
                 </div>
 
-                {codeValidation?.valid && codeValidation.discountAmount ? (
-                  <div className="flex justify-between text-green-600 dark:text-green-400">
-                    <span>Discount Code</span>
-                    <span>-<FormattedPrice price={codeValidation.discountAmount} /></span>
+                {/* Show only the applied discount */}
+                {appliedDiscount > 0 && (
+                  <div className={`flex justify-between ${discountSource === 'code' ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
+                    <span>
+                      {discountSource === 'code' ? 'Discount Code' : `Discount (${discount?.percentage}%)`}
+                    </span>
+                    <span>-<FormattedPrice price={appliedDiscount} /></span>
                   </div>
-                ) : discount && discountAmount > 0 ? (
-                  <div className="flex justify-between text-red-500">
-                    <span>Discount ({discount.percentage}%)</span>
-                    <span>-<FormattedPrice price={discountAmount} /></span>
-                  </div>
-                ) : null}
+                )}
               </div>
             </div>
           )}

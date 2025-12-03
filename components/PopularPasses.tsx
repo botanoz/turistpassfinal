@@ -23,23 +23,44 @@ interface PassSelection {
   discountCode?: string;
 }
 
-// Helper function to get relevant place images for each pass
+// Helper function to get 4 random images from businesses in the pass
 function getImagesForPass(pass: any): string[] {
-  // Get images from businesses array in the pass
-  const placeImages = (pass.businesses || [])
-    .slice(0, 4)
-    .map((business: any) => business.image_url || business.business?.image_url || '')
-    .filter((url: string) => url); // Remove empty strings
+  const businesses = pass.businesses || [];
+  const allImages: string[] = [];
 
-  // If less than 4 images, fill with default image
-  if (placeImages.length < 4) {
-    const defaultImage = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=100&fit=crop";
-    while (placeImages.length < 4) {
-      placeImages.push(defaultImage);
+  // Collect all available images from all businesses
+  businesses.forEach((pb: any) => {
+    const business = pb.business || pb;
+
+    // Add main image
+    if (business.image_url) {
+      allImages.push(business.image_url);
     }
+
+    // Add gallery images
+    if (business.gallery_images && Array.isArray(business.gallery_images)) {
+      allImages.push(...business.gallery_images);
+    }
+  });
+
+  // Remove duplicates and empty strings
+  const uniqueImages = Array.from(new Set(allImages)).filter((url) => url && url.trim() !== '');
+
+  // If we have images, randomly select 4 (or less if not enough available)
+  let selectedImages: string[] = [];
+  if (uniqueImages.length > 0) {
+    // Shuffle array and take first 4
+    const shuffled = uniqueImages.sort(() => 0.5 - Math.random());
+    selectedImages = shuffled.slice(0, 4);
   }
 
-  return placeImages;
+  // If less than 4 images, fill with default image
+  const defaultImage = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=100&fit=crop";
+  while (selectedImages.length < 4) {
+    selectedImages.push(defaultImage);
+  }
+
+  return selectedImages;
 }
 
 // Helper function to prepare places for sidebar

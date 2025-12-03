@@ -140,6 +140,8 @@ export async function GET() {
             name: business.name,
             description: business.description,
             category: business.category,
+            image_url: business.image_url,
+            gallery_images: business.gallery_images,
             location: {
               address: business.address,
               district: business.district,

@@ -489,7 +489,7 @@ function PlacesContent() {
                 <Card className="overflow-hidden group-hover:shadow-lg transition-all duration-300 h-full">
                   <div className="relative h-48 overflow-hidden">
                     <Image
-                      src={place.images?.[0]?.url || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&h=300&fit=crop"}
+                      src={(place as any).image_url || place.images?.[0]?.url || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&h=300&fit=crop"}
                       alt={place.name}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
