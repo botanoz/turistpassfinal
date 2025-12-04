@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient, createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 // Get customer's refund requests
@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const serviceSupabase = createAdminClient();
 
     // Check authentication
     const { data: { session } } = await supabase.auth.getSession();
@@ -98,17 +99,90 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if refund request already exists
+    // Check if refund request already exists (including completed status)
     const { data: existingRequest } = await supabase
       .from('refund_requests')
       .select('id, status')
       .eq('order_id', orderId)
-      .in('status', ['pending', 'under_review', 'approved'])
+      .in('status', ['pending', 'under_review', 'approved', 'completed'])
       .single();
 
     if (existingRequest) {
       return NextResponse.json(
-        { success: false, error: 'A refund request for this order is already in progress' },
+        { success: false, error: 'A refund request for this order is already in progress or has been completed' },
+        { status: 400 }
+      );
+    }
+
+    // CRITICAL: Check if any passes have been used
+    const { data: passes, error: passesError } = await supabase
+      .from('purchased_passes')
+      .select('id, status, usage_count, metadata')
+      .eq('order_id', orderId);
+
+    if (passesError) {
+      console.error('Error checking passes:', passesError);
+      return NextResponse.json(
+        { success: false, error: 'Failed to verify pass usage' },
+        { status: 500 }
+      );
+    }
+
+    // Check if any pass has been used (check both usage_count column and metadata)
+    if (passes && passes.length > 0) {
+      const hasUsedPasses = passes.some(pass => {
+        // Suspended passes are OK (they were suspended by previous refund request)
+        // Active, pending, and pending_activation passes are OK (not used yet)
+        // Cancelled, expired, or used passes are NOT OK
+        if (pass.status === 'cancelled' || pass.status === 'expired' || pass.status === 'used') {
+          return true;
+        }
+
+        // Allow suspended status (pass is already in refund process)
+        if (pass.status === 'suspended') {
+          return false;
+        }
+
+        // Allow pending_activation status (pass not started yet)
+        if (pass.status === 'pending_activation') {
+          return false;
+        }
+
+        // Check usage_count column (primary source of truth)
+        const usageCount = (pass as any).usage_count || 0;
+        if (usageCount > 0) return true;
+
+        // Also check metadata for usage indicators (if metadata exists)
+        const metadata = pass.metadata as any;
+        if (metadata) {
+          if (metadata.used_count && metadata.used_count > 0) return true;
+          if (metadata.visit_count && metadata.visit_count > 0) return true;
+          if (metadata.scans && metadata.scans > 0) return true;
+          if (metadata.redemptions && metadata.redemptions > 0) return true;
+        }
+
+        return false;
+      });
+
+      if (hasUsedPasses) {
+        return NextResponse.json(
+          { success: false, error: 'Cannot request refund for passes that have already been used' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Also check venue_visits table for any visits with this order's passes
+    const { data: visits, error: visitsError } = await supabase
+      .from('venue_visits')
+      .select('id')
+      .eq('customer_id', customerId)
+      .in('purchased_pass_id', passes?.map(p => p.id) || [])
+      .limit(1);
+
+    if (!visitsError && visits && visits.length > 0) {
+      return NextResponse.json(
+        { success: false, error: 'Cannot request refund - passes have been used at venues' },
         { status: 400 }
       );
     }
@@ -139,6 +213,56 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // CRITICAL: Suspend all passes for this order immediately
+    // First, get the passes to store their previous status
+    const { data: passesToSuspend } = await serviceSupabase
+      .from('purchased_passes')
+      .select('id, status, metadata')
+      .eq('order_id', orderId)
+      .in('status', ['active', 'pending', 'pending_activation']);
+
+    if (passesToSuspend && passesToSuspend.length > 0) {
+      // Update each pass to suspended and store previous status in metadata
+      const now = new Date().toISOString();
+
+      for (const pass of passesToSuspend) {
+        const updatedMetadata = {
+          ...(pass.metadata || {}),
+          previous_status: (pass.metadata as any)?.previous_status || pass.status
+        };
+
+        const { error: suspendError } = await serviceSupabase
+          .from('purchased_passes')
+          .update({
+            status: 'suspended',
+            metadata: updatedMetadata,
+            updated_at: now
+          })
+          .eq('id', pass.id);
+
+        if (suspendError) {
+          console.error(`Error suspending pass ${pass.id}:`, suspendError);
+        }
+      }
+
+      console.log(`Suspended ${passesToSuspend.length} pass(es) for order ${orderId}`);
+    }
+
+    // Log customer activity
+    await supabase.from('activity_logs').insert({
+      user_type: 'customer',
+      user_id: customerId,
+      action: 'refund_request_created',
+      description: `Created refund request ${requestNumber} for order ${order.id}`,
+      category: 'refunds',
+      metadata: {
+        refund_request_id: refundRequest.id,
+        order_id: orderId,
+        reason_type: reasonType,
+        requested_amount: requestedAmount
+      }
+    });
 
     return NextResponse.json({
       success: true,

@@ -196,6 +196,57 @@ export async function PATCH(
             { status: 400 }
           );
         }
+
+        // CRITICAL: Verify all passes are cancelled before completing refund
+        // Check for active, suspended, pending, or pending_activation passes
+        const { data: uncancelledPasses, error: passCheckError } = await supabase
+          .from('purchased_passes')
+          .select('id, status, pass_name')
+          .eq('order_id', refundRequest.order_id)
+          .in('status', ['active', 'suspended', 'pending', 'pending_activation']);
+
+        if (passCheckError) {
+          console.error('Error checking passes:', passCheckError);
+          return NextResponse.json(
+            { success: false, error: 'Failed to verify pass cancellation status' },
+            { status: 500 }
+          );
+        }
+
+        // If there are still uncancelled passes, cancel them now
+        if (uncancelledPasses && uncancelledPasses.length > 0) {
+          const { error: cancelError } = await supabase
+            .from('purchased_passes')
+            .update({
+              status: 'cancelled',
+              updated_at: new Date().toISOString()
+            })
+            .eq('order_id', refundRequest.order_id)
+            .in('status', ['active', 'pending', 'suspended', 'pending_activation']);
+
+          if (cancelError) {
+            console.error('Error cancelling passes:', cancelError);
+            return NextResponse.json(
+              { success: false, error: 'Failed to cancel passes. Cannot complete refund.' },
+              { status: 500 }
+            );
+          }
+
+          // Log pass cancellation
+          await supabase.from('activity_logs').insert({
+            user_type: 'admin',
+            user_id: user.id,
+            action: 'passes_cancelled_for_refund',
+            description: `Cancelled ${uncancelledPasses.length} pass(es) for refund ${refundRequest.request_number}`,
+            category: 'refunds',
+            metadata: {
+              refund_request_id: refundId,
+              order_id: refundRequest.order_id,
+              cancelled_passes: uncancelledPasses.map(p => ({ id: p.id, name: p.pass_name, previous_status: p.status }))
+            }
+          });
+        }
+
         updateData.status = 'completed';
         updateData.refund_processed_at = new Date().toISOString();
 
@@ -207,6 +258,10 @@ export async function PATCH(
 
         if (orderUpdateError) {
           console.error('Error updating order status:', orderUpdateError);
+          return NextResponse.json(
+            { success: false, error: 'Failed to update order status to refunded' },
+            { status: 500 }
+          );
         }
         break;
 

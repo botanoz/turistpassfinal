@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
         .from('refund_requests')
         .select('order_id, status')
         .in('order_id', orderIds)
-        .in('status', ['pending', 'under_review']);
+        .in('status', ['pending', 'under_review', 'approved', 'completed']);
 
       if (refundRequests) {
         refundRequests.forEach(req => {

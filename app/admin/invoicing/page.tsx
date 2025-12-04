@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   FileText, Download, DollarSign, TrendingUp, AlertCircle,
-  CheckCircle, Clock, Search, Calendar, Eye, Upload, X, File
+  CheckCircle, Clock, Search, Calendar, Eye, Upload, X, File, RotateCcw
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -41,6 +41,7 @@ interface Order {
   completed_at: string | null;
   invoice_url: string | null;
   receipt_url: string | null;
+  has_pending_refund?: boolean;
   customer_profiles?: {
     full_name: string;
     email: string;
@@ -393,7 +394,7 @@ export default function AdminInvoicingPage() {
                     </tr>
                   ) : (
                     filteredOrders.map((order) => (
-                      <tr key={order.id} className="border-b hover:bg-gray-50">
+                      <tr key={order.id} className={`border-b hover:bg-gray-50 ${order.has_pending_refund || order.status === 'refunded' ? 'bg-orange-50' : ''}`}>
                         <td className="py-3 px-4 font-mono text-sm">{order.order_number}</td>
                         <td className="py-3 px-4">
                           <div className="font-medium">{order.customer_profiles?.full_name}</div>
@@ -415,7 +416,15 @@ export default function AdminInvoicingPage() {
                           )}
                         </td>
                         <td className="py-3 px-4">
-                          {getStatusBadge(order.status)}
+                          <div className="flex flex-col gap-1">
+                            {getStatusBadge(order.status)}
+                            {order.has_pending_refund && order.status !== 'refunded' && (
+                              <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-xs">
+                                <RotateCcw className="w-2 h-2 mr-1" />
+                                Refund Requested
+                              </Badge>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3 px-4">
                           {getPaymentStatusBadge(order.payment_status)}
@@ -459,24 +468,33 @@ export default function AdminInvoicingPage() {
                           </div>
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <div className="flex gap-2 justify-end">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleOpenUploadDialog(order, 'invoice')}
-                            >
-                              <Upload className="w-4 h-4 mr-1" />
-                              Invoice
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleOpenUploadDialog(order, 'receipt')}
-                            >
-                              <Upload className="w-4 h-4 mr-1" />
-                              Receipt
-                            </Button>
-                          </div>
+                          {order.status === 'refunded' ? (
+                            <div className="text-xs text-gray-500 italic">Refunded - No uploads</div>
+                          ) : order.has_pending_refund ? (
+                            <div className="flex flex-col gap-1 items-end">
+                              <div className="text-xs text-orange-600 font-medium">⚠️ Refund Pending</div>
+                              <div className="text-xs text-gray-500">Wait for refund decision</div>
+                            </div>
+                          ) : (
+                            <div className="flex gap-2 justify-end">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenUploadDialog(order, 'invoice')}
+                              >
+                                <Upload className="w-4 h-4 mr-1" />
+                                Invoice
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenUploadDialog(order, 'receipt')}
+                              >
+                                <Upload className="w-4 h-4 mr-1" />
+                                Receipt
+                              </Button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))

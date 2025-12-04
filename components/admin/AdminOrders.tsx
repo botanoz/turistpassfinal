@@ -15,7 +15,8 @@ import {
   AlertCircle,
   MoreHorizontal,
   CheckCircle,
-  XCircle
+  XCircle,
+  RotateCcw
 } from "lucide-react";
 import {
   Select,
@@ -189,7 +190,7 @@ export default function AdminOrders() {
                 {filteredOrders.map((order) => (
                   <div key={order.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border gap-3">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="flex items-center gap-3 mb-2 flex-wrap">
                         <h3 className="font-semibold">{order.id}</h3>
                         <Badge variant={
                           order.status === "completed" ? "default" :
@@ -200,9 +201,15 @@ export default function AdminOrders() {
                           {order.status === "completed" && <CheckCircle className="h-3 w-3 mr-1" />}
                           {order.status === "pending" && <span className="h-3 w-3 mr-1">⏳</span>}
                           {order.status === "cancelled" && <XCircle className="h-3 w-3 mr-1" />}
-                          {order.status === "refunded" && <span className="h-3 w-3 mr-1">↩️</span>}
+                          {order.status === "refunded" && <RotateCcw className="h-3 w-3 mr-1" />}
                           {order.status}
                         </Badge>
+                        {order.has_pending_refund && order.status !== "refunded" && (
+                          <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">
+                            <RotateCcw className="h-3 w-3 mr-1" />
+                            Refund Requested
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                         <span>Customer: <strong>{order.customer}</strong></span>

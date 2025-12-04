@@ -65,10 +65,12 @@ export async function POST(request: NextRequest) {
           id,
           name,
           description,
-          price,
-          original_price,
-          duration_days,
-          duration_hours
+          short_description,
+          status,
+          image_url,
+          gallery_images,
+          features,
+          benefits
         )
       `)
       .eq('id', passId)

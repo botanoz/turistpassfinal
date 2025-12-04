@@ -409,9 +409,15 @@ export default function PaymentsPage() {
                   <CardHeader>
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
-                        <CardTitle className="flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 flex-wrap">
                           Order #{order.order_number}
                           {getStatusBadge(order.status)}
+                          {order.has_pending_refund && order.status !== 'refunded' && (
+                            <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              Refund In Progress
+                            </Badge>
+                          )}
                         </CardTitle>
                         <CardDescription className="flex items-center gap-4 mt-1">
                           <span className="flex items-center gap-1">
@@ -452,31 +458,41 @@ export default function PaymentsPage() {
 
                       {/* Actions */}
                       <div className="flex flex-wrap gap-2 pt-2">
-                        {order.invoice_url && (
+                        {/* Only show invoice/receipt buttons if order is not refunded */}
+                        {order.status !== 'refunded' && order.invoice_url && (
                           <Button variant="outline" size="sm" onClick={() => handleDownloadInvoice(order.id)}>
                             <FileText className="h-4 w-4 mr-2" />
                             Invoice
                           </Button>
                         )}
-                        {order.receipt_url && (
+                        {order.status !== 'refunded' && order.receipt_url && (
                           <Button variant="outline" size="sm" onClick={() => handleDownloadReceipt(order.id)}>
                             <Receipt className="h-4 w-4 mr-2" />
                             Receipt
                           </Button>
                         )}
-                        {order.status === 'completed' && order.payment_status === 'completed' && (
-                          order.has_pending_refund ? (
-                            <Badge variant="secondary" className="px-3 py-1 h-9 flex items-center gap-2">
-                              <Clock className="h-4 w-4" />
-                              Refund Request Pending
-                            </Badge>
-                          ) : (
-                            <Button variant="outline" size="sm" onClick={() => handleRequestRefund(order)}>
-                              <RotateCcw className="h-4 w-4 mr-2" />
-                              Request Refund
-                            </Button>
-                          )
+                        {/* Refund button logic */}
+                        {order.status === 'completed' && order.payment_status === 'completed' && !order.has_pending_refund && (
+                          <Button variant="outline" size="sm" onClick={() => handleRequestRefund(order)}>
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Request Refund
+                          </Button>
                         )}
+                        {/* Show refund status if there's a pending/active refund */}
+                        {order.has_pending_refund && order.status !== 'refunded' && (
+                          <Badge variant="secondary" className="px-3 py-1 h-9 flex items-center gap-2 bg-orange-100 text-orange-800">
+                            <Clock className="h-4 w-4" />
+                            Refund In Progress
+                          </Badge>
+                        )}
+                        {/* Show refunded message for refunded orders */}
+                        {order.status === 'refunded' && (
+                          <Badge variant="outline" className="px-3 py-1 h-9 flex items-center gap-2 bg-green-50 text-green-700 border-green-200">
+                            <CheckCircle className="h-4 w-4" />
+                            Refund Completed
+                          </Badge>
+                        )}
+                        {/* Support button - always available */}
                         <Button variant="outline" size="sm" onClick={() => handleOpenSupportTicket(order)}>
                           <MessageSquare className="h-4 w-4 mr-2" />
                           Request Support
