@@ -585,6 +585,17 @@ export default function AdminRefunds() {
                 </div>
               )}
 
+              {actionType === 'complete' && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                  <h4 className="font-medium text-blue-900 mb-2">Completing Refund</h4>
+                  <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                    <li>All passes will be cancelled</li>
+                    <li>Order status will be set to "Refunded"</li>
+                    <li>Customer will see "Refund Completed" status</li>
+                  </ul>
+                </div>
+              )}
+
               <div>
                 <Label>Admin Notes (Optional)</Label>
                 <Textarea

@@ -204,12 +204,23 @@ export default function AdminOrders() {
                           {order.status === "refunded" && <RotateCcw className="h-3 w-3 mr-1" />}
                           {order.status}
                         </Badge>
-                        {order.has_pending_refund && order.status !== "refunded" && (
+                        {/* Refund Status Badges */}
+                        {order.refund_status === 'pending' || order.refund_status === 'under_review' ? (
                           <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">
                             <RotateCcw className="h-3 w-3 mr-1" />
                             Refund Requested
                           </Badge>
-                        )}
+                        ) : order.refund_status === 'approved' ? (
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Refund Approved
+                          </Badge>
+                        ) : order.refund_status === 'completed' && order.status !== 'refunded' ? (
+                          <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Refunded
+                          </Badge>
+                        ) : null}
                       </div>
                       <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                         <span>Customer: <strong>{order.customer}</strong></span>

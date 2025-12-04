@@ -32,6 +32,7 @@ import {
   Calendar,
   User,
   DollarSign,
+  RotateCcw,
 } from "lucide-react";
 import {
   Select,
@@ -69,6 +70,8 @@ interface Order {
   completed_at?: string;
   cancelled_at?: string;
   refunded_at?: string;
+  refund_status?: string | null;
+  has_pending_refund?: boolean;
   customer_profiles: {
     first_name: string;
     last_name: string;
@@ -261,9 +264,32 @@ export default function AdminOrdersEnhanced() {
       first_usage: Activity,
       order_completed: CheckCircle,
       order_cancelled: XCircle,
+      refund_requested: RotateCcw,
+      refund_approved: CheckCircle,
+      refund_rejected: XCircle,
       refund_completed: DollarSign,
     };
     return icons[eventType] || Calendar;
+  };
+
+  const getTimelineIconColor = (eventType: string) => {
+    // Return background and text color classes
+    const colors: Record<string, string> = {
+      order_created: 'bg-blue-500 text-white',
+      payment_pending: 'bg-yellow-500 text-white',
+      payment_completed: 'bg-green-500 text-white',
+      payment_failed: 'bg-red-500 text-white',
+      order_confirmed: 'bg-green-500 text-white',
+      pass_delivered: 'bg-blue-500 text-white',
+      first_usage: 'bg-purple-500 text-white',
+      order_completed: 'bg-green-600 text-white',
+      order_cancelled: 'bg-gray-500 text-white',
+      refund_requested: 'bg-orange-500 text-white',
+      refund_approved: 'bg-blue-600 text-white',
+      refund_rejected: 'bg-red-600 text-white',
+      refund_completed: 'bg-green-600 text-white',
+    };
+    return colors[eventType] || 'bg-primary text-primary-foreground';
   };
 
   const convertAndFormat = (amount: number, sourceCurrency?: string) => {
@@ -407,6 +433,23 @@ export default function AdminOrdersEnhanced() {
                             <h3 className="font-semibold text-lg">#{order.order_number}</h3>
                             {getOrderStatusBadge(order.status)}
                             {getPaymentStatusBadge(order.payment_status)}
+                            {/* Refund Status Badge */}
+                            {order.refund_status === 'pending' || order.refund_status === 'under_review' ? (
+                              <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                Refund Requested
+                              </Badge>
+                            ) : order.refund_status === 'approved' ? (
+                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Refund Approved
+                              </Badge>
+                            ) : order.refund_status === 'completed' || order.status === 'refunded' ? (
+                              <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Refunded
+                              </Badge>
+                            ) : null}
                           </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
@@ -449,37 +492,15 @@ export default function AdminOrdersEnhanced() {
 
                         {/* Actions */}
                         <div className="flex lg:flex-col gap-2">
-                          <Button variant="outline" size="sm" onClick={() => handleViewDetails(order)} className="flex-1 lg:flex-none">
+                          <Button
+                            variant="default"
+                            size="default"
+                            onClick={() => handleViewDetails(order)}
+                            className="flex-1 lg:w-32"
+                          >
                             <Eye className="h-4 w-4 mr-2" />
                             Details
                           </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreHorizontal className="h-5 w-5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              {order.status !== "completed" && (
-                                <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, "completed")}>
-                                  <CheckCircle className="h-4 w-4 mr-2" />
-                                  Mark as Completed
-                                </DropdownMenuItem>
-                              )}
-                              {order.status !== "cancelled" && (
-                                <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, "cancelled")}>
-                                  <XCircle className="h-4 w-4 mr-2" />
-                                  Cancel Order
-                                </DropdownMenuItem>
-                              )}
-                              {order.status === "completed" && (
-                                <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, "refunded")}>
-                                  <DollarSign className="h-4 w-4 mr-2" />
-                                  Refund Order
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
                         </div>
                       </div>
                     </div>
@@ -548,10 +569,11 @@ export default function AdminOrdersEnhanced() {
                       <div className="space-y-4">
                         {timeline.map((event, index) => {
                           const Icon = getTimelineIcon(event.event_type);
+                          const iconColor = getTimelineIconColor(event.event_type);
                           return (
                             <div key={event.id} className="relative flex gap-4 pl-10">
-                              <div className="absolute left-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                                <Icon className="h-4 w-4 text-primary-foreground" />
+                              <div className={`absolute left-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}>
+                                <Icon className="h-4 w-4" />
                               </div>
                               <div className="flex-1 pb-4">
                                 <div className="flex items-start justify-between">

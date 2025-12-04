@@ -59,9 +59,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get pending refund requests for these orders
+    // Get refund requests for these orders
     const orderIds = (orders || []).map(o => o.id);
-    let pendingRefunds: Record<string, boolean> = {};
+    let refundStatusMap: Record<string, string> = {};
 
     if (orderIds.length > 0) {
       const { data: refundRequests } = await supabase
@@ -72,15 +72,16 @@ export async function GET(request: NextRequest) {
 
       if (refundRequests) {
         refundRequests.forEach(req => {
-          pendingRefunds[req.order_id] = true;
+          refundStatusMap[req.order_id] = req.status;
         });
       }
     }
 
-    // Add has_pending_refund flag to each order
+    // Add refund status info to each order
     const ordersWithRefundStatus = (orders || []).map(order => ({
       ...order,
-      has_pending_refund: pendingRefunds[order.id] || false
+      refund_status: refundStatusMap[order.id] || null,
+      has_pending_refund: ['pending', 'under_review'].includes(refundStatusMap[order.id])
     }));
 
     return NextResponse.json({

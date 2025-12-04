@@ -152,18 +152,27 @@ export async function GET(request: NextRequest) {
     };
 
     // Format customer names and add refund status
-    const formattedOrders = filteredOrders.map((order: any) => ({
-      ...order,
-      customer_profiles: order.customer_profiles ? {
-        full_name: `${order.customer_profiles.first_name || ''} ${order.customer_profiles.last_name || ''}`.trim(),
-        email: order.customer_profiles.email,
-        phone: order.customer_profiles.phone
-      } : null,
-      purchased_passes: order.order_items || [],
-      has_pending_refund: order.refund_requests?.some((r: any) =>
-        ['pending', 'under_review', 'approved'].includes(r.status)
-      ) || false
-    }));
+    const formattedOrders = filteredOrders.map((order: any) => {
+      // Get the latest refund request (if any)
+      const latestRefund = order.refund_requests && order.refund_requests.length > 0
+        ? order.refund_requests.sort((a: any, b: any) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          )[0]
+        : null;
+
+      return {
+        ...order,
+        customer_profiles: order.customer_profiles ? {
+          full_name: `${order.customer_profiles.first_name || ''} ${order.customer_profiles.last_name || ''}`.trim(),
+          email: order.customer_profiles.email,
+          phone: order.customer_profiles.phone
+        } : null,
+        purchased_passes: order.order_items || [],
+        has_pending_refund: latestRefund && ['pending', 'under_review', 'approved'].includes(latestRefund.status),
+        refund_status: latestRefund?.status || null,
+        refund_request: latestRefund
+      };
+    });
 
     return NextResponse.json({
       success: true,
