@@ -40,13 +40,7 @@ export async function GET(request: NextRequest) {
           pass_type,
           quantity,
           unit_price,
-          total_price,
-          passes (
-            id,
-            name,
-            description,
-            image_url
-          )
+          total_price
         )
       `)
       .eq('customer_id', customerId)

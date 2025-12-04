@@ -186,14 +186,15 @@ export default function HowItWorks() {
       {/* Connecting Lines - Only rendered client-side on desktop */}
       {isMounted && !isSmallScreen && (
         <div className="absolute inset-0 pointer-events-none hidden md:block">
-          <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
             <path
-              d="M 25% 50% Q 37.5% 25%, 50% 50% Q 62.5% 75%, 75% 50%"
+              d="M 25 50 Q 37.5 25, 50 50 Q 62.5 75, 75 50"
               stroke="currentColor"
-              strokeWidth="1"
+              strokeWidth="0.5"
               fill="none"
               className="text-primary/20"
-              strokeDasharray="5,5"
+              strokeDasharray="2,2"
+              vectorEffect="non-scaling-stroke"
             />
           </svg>
         </div>

@@ -73,12 +73,6 @@ interface OrderItem {
   total_price: number;
   adult_quantity?: number;
   child_quantity?: number;
-  passes: {
-    id: string;
-    name: string;
-    description?: string;
-    image_url?: string;
-  };
 }
 
 interface RefundRequest {
@@ -443,7 +437,7 @@ export default function PaymentsPage() {
                         {order.order_items?.map((item) => (
                           <div key={item.id} className="flex justify-between items-start py-2 border-b last:border-0">
                             <div>
-                              <p className="font-medium">{item.passes?.name || item.pass_name}</p>
+                              <p className="font-medium">{item.pass_name}</p>
                               {item.adult_quantity && (
                                 <p className="text-sm text-muted-foreground">Adult: {item.adult_quantity}</p>
                               )}

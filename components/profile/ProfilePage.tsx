@@ -548,7 +548,13 @@ const hydrateFromLocalUser = (user: LocalUser) => {
                       <div>
                         <p className="font-medium">{pass.passName}</p>
                         <p className="text-sm text-muted-foreground">
-                          Expires: {new Date(pass.expiryDate).toLocaleDateString()}
+                          {pass.status === 'pending_activation' ? (
+                            'Ready to activate'
+                          ) : pass.expiryDate ? (
+                            `Expires: ${new Date(pass.expiryDate).toLocaleDateString()}`
+                          ) : (
+                            'No expiry date'
+                          )}
                         </p>
                       </div>
                     </div>

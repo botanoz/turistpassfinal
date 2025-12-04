@@ -41,6 +41,7 @@ import {
   Tag,
   DollarSign,
   FileText,
+  RotateCcw,
 } from "lucide-react";
 
 type Notification = {
@@ -173,6 +174,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: "Invoicing & Payments", href: "/admin/invoicing", icon: FileText, permission: "businesses" as const },
     { name: "Passes", href: "/admin/passes", icon: CreditCard, permission: "passes" as const },
     { name: "Orders", href: "/admin/orders", icon: ShoppingCart, permission: "orders" as const },
+    { name: "Refunds", href: "/admin/refunds", icon: RotateCcw, permission: "orders" as const },
     { name: "Campaigns & Codes", href: "/admin/campaigns", icon: Megaphone, permission: "settings" as const },
     { name: "Announcements", href: "/admin/messages", icon: MessageSquare, permission: "settings" as const },
     { name: "Contact Messages", href: "/admin/contact-messages", icon: MessageSquare, permission: "support" as const },

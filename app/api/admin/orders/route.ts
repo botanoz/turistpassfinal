@@ -77,6 +77,14 @@ export async function GET(request: NextRequest) {
           unit_price,
           total_price,
           pass_name
+        ),
+        refund_requests (
+          id,
+          request_number,
+          status,
+          reason_type,
+          requested_amount,
+          created_at
         )
       `, { count: 'exact' });
 
@@ -143,7 +151,7 @@ export async function GET(request: NextRequest) {
       totalRevenue: Number(stats.total_revenue)
     };
 
-    // Format customer names
+    // Format customer names and add refund status
     const formattedOrders = filteredOrders.map((order: any) => ({
       ...order,
       customer_profiles: order.customer_profiles ? {
@@ -151,7 +159,10 @@ export async function GET(request: NextRequest) {
         email: order.customer_profiles.email,
         phone: order.customer_profiles.phone
       } : null,
-      purchased_passes: order.order_items || []
+      purchased_passes: order.order_items || [],
+      has_pending_refund: order.refund_requests?.some((r: any) =>
+        ['pending', 'under_review', 'approved'].includes(r.status)
+      ) || false
     }));
 
     return NextResponse.json({

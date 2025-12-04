@@ -47,7 +47,10 @@ export async function GET() {
       .select('id, status')
       .eq('customer_id', user.id);
 
-    const totalPasses = passStats?.length || 0;
+    // Only count active and pending_activation passes (not expired, cancelled, or used)
+    const totalPasses = passStats?.filter(p =>
+      p.status === 'active' || p.status === 'pending_activation'
+    ).length || 0;
     const activePasses = passStats?.filter(p => p.status === 'active').length || 0;
 
     return NextResponse.json({
