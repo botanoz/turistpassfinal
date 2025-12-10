@@ -14,6 +14,8 @@ import type { Pass as DatabasePass } from "@/lib/services/passService";
 import { toast } from "sonner";
 import { FormattedPrice } from "@/components/currency/FormattedPrice";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 interface PassSelection {
   passType: string;
@@ -146,6 +148,9 @@ export default function AllPassesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'popular' | 'price-low' | 'price-high' | 'attractions'>('popular');
   const { currency } = useCurrency();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
 
   // Fetch passes from database
   useEffect(() => {
@@ -286,8 +291,35 @@ export default function AllPassesPage() {
     setSidebarOpen(false);
   };
 
+  const ensureAuthenticated = async () => {
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error || !data.session) {
+      toast.error("Please sign in to purchase", {
+        description: "Please sign in or create an account to continue.",
+      });
+
+      const redirectTarget =
+        typeof window !== "undefined"
+          ? `${window.location.pathname}${window.location.search || ""}`
+          : "/";
+
+      router.push(`/login?redirect=${encodeURIComponent(redirectTarget)}`);
+      closeSidebar();
+      return false;
+    }
+
+    return true;
+  };
+
   const handleBuyNow = async (selection: PassSelection) => {
     try {
+      if (isSubmitting) return;
+      setIsSubmitting(true);
+
+      const hasSession = await ensureAuthenticated();
+      if (!hasSession) return;
+
       const selectedPassData = passes.find(p => p.id === selection.passType);
       if (!selectedPassData) {
         toast.error("Pass not found");
@@ -324,6 +356,19 @@ export default function AllPassesPage() {
         }),
       });
 
+      if (response.status === 401) {
+        toast.error("Please sign in to purchase", {
+          description: "Please sign in then try again.",
+        });
+        const redirectTarget =
+          typeof window !== "undefined"
+            ? `${window.location.pathname}${window.location.search || ""}`
+            : "/";
+        router.push(`/login?redirect=${encodeURIComponent(redirectTarget)}`);
+        closeSidebar();
+        return;
+      }
+
       const result = await response.json();
 
       if (result.success) {
@@ -345,6 +390,8 @@ export default function AllPassesPage() {
     } catch (error: any) {
       console.error('Purchase error:', error);
       toast.error("Purchase failed", { description: error.message });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

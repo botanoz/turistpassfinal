@@ -2,8 +2,8 @@ import NotificationPreferencesPage from '@/components/profile/NotificationPrefer
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Bildirim Tercihleri - TuristPass',
-  description: 'Bildirim ayarlarınızı yönetin',
+  title: 'Notification Preferences - TuristPass',
+  description: 'Manage how you receive TuristPass notifications',
 };
 
 export default function Page() {

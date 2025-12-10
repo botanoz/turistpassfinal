@@ -359,7 +359,7 @@ export default function BusinessLayout({ children }: BusinessLayoutProps) {
           key={item.name}
           className={`${baseClasses} opacity-60 cursor-not-allowed`}
           aria-disabled
-          title="Bu menü işletme onaylandıktan sonra açılır"
+          title="This menu opens after the business is approved"
         >
           <item.icon className="h-5 w-5 shrink-0" />
           <span className="flex-1">{item.name}</span>

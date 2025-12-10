@@ -82,7 +82,19 @@ export function getPriceInCurrency(
   };
 
   const field = fieldMap[currencyCode] || 'price';
-  return pricing[field] || pricing.price || 0;
+  const basePrice = pricing.price || 0;
+  const precomputed = pricing[field];
+
+  if (typeof precomputed === 'number' && precomputed > 0) {
+    return precomputed;
+  }
+
+  // Fallback: use base TRY price and provided exchange_rate on pricing if exists
+  if (currencyCode !== 'TRY' && typeof pricing.exchange_rate === 'number' && pricing.exchange_rate > 0) {
+    return basePrice / pricing.exchange_rate;
+  }
+
+  return basePrice;
 }
 
 /**

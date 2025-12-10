@@ -16,7 +16,29 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, Globe, ChevronDown, Home, Map, Ticket, HelpCircle, CalendarDays, Phone, LogIn, UserPlus, Sun, Moon } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Menu,
+  Globe,
+  ChevronDown,
+  Home,
+  Map,
+  Ticket,
+  HelpCircle,
+  CalendarDays,
+  Phone,
+  LogIn,
+  UserPlus,
+  Sun,
+  Moon,
+  User as UserIcon,
+  Clock3,
+  Heart,
+  MessageSquare,
+  Wallet,
+  LifeBuoy,
+  LayoutDashboard,
+} from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { createClient } from "@/lib/supabase/client";
@@ -164,6 +186,31 @@ export default function Navbar() {
   };
 
   const menuItems = getMenuItems();
+  const accountMenuItems =
+    currentUser?.type === "business"
+      ? [
+          {
+            href: "/business/dashboard",
+            label: "Business Dashboard",
+            icon: LayoutDashboard,
+          },
+          {
+            href: "/business/profile",
+            label: "Business Profile",
+            icon: UserIcon,
+          },
+        ]
+      : currentUser
+      ? [
+          { href: "/profile", label: "My Profile", icon: UserIcon },
+          { href: "/my-passes", label: "My Passes", icon: Ticket },
+          { href: "/visit-history", label: "Visit History", icon: Clock3 },
+          { href: "/favorites", label: "Favorites", icon: Heart },
+          { href: "/messages", label: "Messages", icon: MessageSquare },
+          { href: "/support", label: "Support & Help", icon: LifeBuoy },
+          { href: "/payments", label: "Payments & Billing", icon: Wallet },
+        ]
+      : [];
 
   const languages = [
     { code: "tr", label: "Türkçe" },
@@ -258,102 +305,112 @@ export default function Navbar() {
               <Menu className="h-6 w-6" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-[300px] sm:w-[400px]">
-            <SheetHeader>
+          <SheetContent side="left" className="w-[300px] sm:w-[400px] p-0 flex h-full flex-col">
+            <div className="p-4 border-b flex items-center justify-between">
               <SheetTitle className="text-left text-primary">TuristPass</SheetTitle>
-            </SheetHeader>
-            <div className="flex flex-col gap-4 mt-6">
-              {menuItems.map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md hover:bg-accent hover:text-accent-foreground"
-                  onClick={() => setIsOpen(false)}
-                >
-                  <item.icon className="h-5 w-5" />
-                  {item.label}
-                </Link>
-              ))}
-              <div className="border-t my-4" />
-
-              {/* Mobile Auth Buttons */}
-              {currentUser ? (
-                <div className="px-4 space-y-4">
-                  <div className="flex items-center gap-3 p-3 bg-accent rounded-lg">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                      {currentUser.initials}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{currentUser.displayName}</p>
-                      {currentUser.subtitle && (
-                        <p className="text-xs text-muted-foreground">{currentUser.subtitle}</p>
-                      )}
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={async () => {
-                      await handleLogout();
-                      setIsOpen(false);
-                    }}
-                  >
-                    <LogIn className="h-4 w-4 mr-2" />
-                    Log Out
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-4 px-4">
-                  <Link href="/login" onClick={() => setIsOpen(false)}>
-                    <Button className="w-full" variant="outline">
-                      <LogIn className="h-4 w-4 mr-2" />
-                      Log In
-                    </Button>
-                  </Link>
-                  <Link href="/signup" onClick={() => setIsOpen(false)}>
-                    <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Sign Up
-                    </Button>
-                  </Link>
-                </div>
-              )}
-              
-              <div className="border-t my-4" />
-              
-              {/* Mobile Settings */}
-              <div className="px-4 space-y-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                  className="w-full gap-2"
-                >
-                  {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                  {theme === "dark" ? "Light Theme" : "Dark Theme"}
-                </Button>
-
-                {/* Mobile Currency Selector */}
-                <CurrencySelector variant="outline" size="sm" className="w-full" />
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="w-full gap-2">
-                      <Globe className="h-4 w-4" />
-                      <span>Language</span>
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {languages.map((lang) => (
-                      <DropdownMenuItem key={lang.code}>
-                        {lang.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+                {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
             </div>
+            <ScrollArea className="flex-1 px-4">
+              <div className="flex flex-col gap-4 mt-6 pb-6">
+                {menuItems.map((item) => (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <item.icon className="h-5 w-5" />
+                    {item.label}
+                  </Link>
+                ))}
+
+                <div className="border-t" />
+
+                {/* Mobile Auth Buttons */}
+                {currentUser ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 p-3 bg-accent rounded-lg">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
+                        {currentUser.initials}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{currentUser.displayName}</p>
+                        {currentUser.subtitle && (
+                          <p className="text-xs text-muted-foreground">{currentUser.subtitle}</p>
+                        )}
+                      </div>
+                    </div>
+                    {accountMenuItems.length > 0 && (
+                      <div className="space-y-2">
+                        {accountMenuItems.map((item) => (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent transition-colors"
+                            onClick={() => setIsOpen(false)}
+                          >
+                            <item.icon className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-medium">{item.label}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={async () => {
+                        await handleLogout();
+                        setIsOpen(false);
+                      }}
+                    >
+                      <LogIn className="h-4 w-4 mr-2" />
+                      Log Out
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <Link href="/login" onClick={() => setIsOpen(false)}>
+                      <Button className="w-full" variant="outline">
+                        <LogIn className="h-4 w-4 mr-2" />
+                        Log In
+                      </Button>
+                    </Link>
+                    <Link href="/signup" onClick={() => setIsOpen(false)}>
+                      <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Sign Up
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+
+                <div className="border-t" />
+
+                {/* Mobile Settings */}
+                <div className="space-y-3">
+                  <CurrencySelector variant="outline" size="sm" className="w-full" />
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full gap-2">
+                        <Globe className="h-4 w-4" />
+                        <span>Language</span>
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {languages.map((lang) => (
+                        <DropdownMenuItem key={lang.code}>
+                          {lang.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            </ScrollArea>
           </SheetContent>
         </Sheet>
       </div>

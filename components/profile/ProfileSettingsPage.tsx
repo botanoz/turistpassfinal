@@ -46,7 +46,7 @@ export default function ProfileSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [preferences, setPreferences] = useState<Preferences>({
-    language: 'tr',
+    language: 'en',
     currency: 'TRY',
     notifications: {
       email_marketing: true,
@@ -82,7 +82,7 @@ export default function ProfileSettingsPage() {
       }
     } catch (error) {
       console.error('Error fetching preferences:', error);
-      toast.error('Ayarlar yüklenemedi');
+      toast.error('Failed to load settings');
     } finally {
       setLoading(false);
     }
@@ -100,7 +100,7 @@ export default function ProfileSettingsPage() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('Ayarlar kaydedildi');
+        toast.success('Settings saved');
 
         // If currency changed, update localStorage and reload
         if (data.preferences.currency) {
@@ -112,7 +112,7 @@ export default function ProfileSettingsPage() {
       }
     } catch (error) {
       console.error('Error saving preferences:', error);
-      toast.error('Ayarlar kaydedilemedi');
+      toast.error('Failed to save settings');
     } finally {
       setSaving(false);
     }
@@ -121,17 +121,17 @@ export default function ProfileSettingsPage() {
   const handlePasswordChange = async () => {
     // Validation
     if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
-      toast.error('Tüm alanları doldurun');
+      toast.error('Please fill in all password fields');
       return;
     }
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error('Yeni şifreler eşleşmiyor');
+      toast.error('New passwords do not match');
       return;
     }
 
     if (passwordData.newPassword.length < 8) {
-      toast.error('Yeni şifre en az 8 karakter olmalıdır');
+      toast.error('New password must be at least 8 characters');
       return;
     }
 
@@ -149,18 +149,18 @@ export default function ProfileSettingsPage() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('Şifre başarıyla değiştirildi');
+        toast.success('Password changed successfully');
         setPasswordData({
           currentPassword: '',
           newPassword: '',
           confirmPassword: '',
         });
       } else {
-        toast.error(data.error || 'Şifre değiştirilemedi');
+        toast.error(data.error || 'Unable to change password');
       }
     } catch (error) {
       console.error('Error changing password:', error);
-      toast.error('Şifre değiştirilemedi');
+      toast.error('Unable to change password');
     } finally {
       setChangingPassword(false);
     }
@@ -181,12 +181,12 @@ export default function ProfileSettingsPage() {
         <Link href="/profile">
           <Button variant="ghost" size="sm" className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Profil'e Dön
+            Back to Profile
           </Button>
         </Link>
-        <h1 className="text-3xl font-bold mb-2">Ayarlar</h1>
+        <h1 className="text-3xl font-bold mb-2">Settings</h1>
         <p className="text-muted-foreground">
-          Dil, para birimi ve bildirim tercihlerinizi yönetin
+          Manage your language, currency, and notification preferences
         </p>
       </div>
 
@@ -194,15 +194,15 @@ export default function ProfileSettingsPage() {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="preferences">
             <Settings className="w-4 h-4 mr-2" />
-            Tercihler
+            Preferences
           </TabsTrigger>
           <TabsTrigger value="notifications">
             <Bell className="w-4 h-4 mr-2" />
-            Bildirimler
+            Notifications
           </TabsTrigger>
           <TabsTrigger value="security">
             <Lock className="w-4 h-4 mr-2" />
-            Güvenlik
+            Security
           </TabsTrigger>
         </TabsList>
 
@@ -212,15 +212,15 @@ export default function ProfileSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Globe className="w-5 h-5" />
-                Dil Tercihi
+                Language Preference
               </CardTitle>
               <CardDescription>
-                Uygulamada kullanılacak dili seçin
+                Choose the language used in the app
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <Label htmlFor="language">Dil</Label>
+                <Label htmlFor="language">Language</Label>
                 <Select
                   value={preferences.language}
                   onValueChange={(value) =>
@@ -231,9 +231,9 @@ export default function ProfileSettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="tr">🇹🇷 Türkçe</SelectItem>
-                    <SelectItem value="en">🇬🇧 English</SelectItem>
-                    <SelectItem value="de">🇩🇪 Deutsch</SelectItem>
+                    <SelectItem value="tr">Turkish</SelectItem>
+                    <SelectItem value="en">English</SelectItem>
+                    <SelectItem value="de">German</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -244,15 +244,15 @@ export default function ProfileSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="w-5 h-5" />
-                Para Birimi
+                Currency
               </CardTitle>
               <CardDescription>
-                Fiyatların gösterileceği para birimini seçin
+                Choose which currency to display prices in
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <Label htmlFor="currency">Para Birimi</Label>
+                <Label htmlFor="currency">Currency</Label>
                 <Select
                   value={preferences.currency}
                   onValueChange={(value) =>
@@ -263,17 +263,17 @@ export default function ProfileSettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="TRY">{getCurrencyFlag('TRY')} Turkish Lira (₺)</SelectItem>
-                    <SelectItem value="USD">{getCurrencyFlag('USD')} US Dollar ($)</SelectItem>
-                    <SelectItem value="EUR">{getCurrencyFlag('EUR')} Euro (€)</SelectItem>
-                    <SelectItem value="GBP">{getCurrencyFlag('GBP')} British Pound (£)</SelectItem>
-                    <SelectItem value="JPY">{getCurrencyFlag('JPY')} Japanese Yen (¥)</SelectItem>
+                    <SelectItem value="TRY">{getCurrencyFlag('TRY')} Turkish Lira (TRY)</SelectItem>
+                    <SelectItem value="USD">{getCurrencyFlag('USD')} US Dollar (USD)</SelectItem>
+                    <SelectItem value="EUR">{getCurrencyFlag('EUR')} Euro (EUR)</SelectItem>
+                    <SelectItem value="GBP">{getCurrencyFlag('GBP')} British Pound (GBP)</SelectItem>
+                    <SelectItem value="JPY">{getCurrencyFlag('JPY')} Japanese Yen (JPY)</SelectItem>
                   </SelectContent>
                 </Select>
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription className="text-xs">
-                    Para birimi değiştirildiğinde sayfa yeniden yüklenecektir.
+                    The page will reload after you change the currency.
                   </AlertDescription>
                 </Alert>
               </div>
@@ -284,15 +284,15 @@ export default function ProfileSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Smartphone className="w-5 h-5" />
-                İletişim Bilgileri
+                Contact Information
               </CardTitle>
               <CardDescription>
-                SMS bildirimleri için telefon numaranızı güncelleyin
+                Update your phone number for SMS notifications
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <Label htmlFor="phone">Telefon Numarası</Label>
+                <Label htmlFor="phone">Phone Number</Label>
                 <Input
                   id="phone"
                   type="tel"
@@ -311,12 +311,12 @@ export default function ProfileSettingsPage() {
               {saving ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Kaydediliyor...
+                  Saving...
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4 mr-2" />
-                  Değişiklikleri Kaydet
+                  Save Changes
                 </>
               )}
             </Button>
@@ -329,18 +329,18 @@ export default function ProfileSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Mail className="w-5 h-5" />
-                E-posta Bildirimleri
+                Email Notifications
               </CardTitle>
               <CardDescription>
-                Hangi e-posta bildirimlerini almak istediğinizi seçin
+                Choose which email notifications you want to receive
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Kampanya E-postaları</Label>
+                  <Label>Marketing Emails</Label>
                   <p className="text-sm text-muted-foreground">
-                    Özel indirimler ve kampanyalar hakkında bildirim alın
+                    Get notified about special discounts and campaigns
                   </p>
                 </div>
                 <Switch
@@ -361,9 +361,9 @@ export default function ProfileSettingsPage() {
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Sistem Güncellemeleri</Label>
+                  <Label>System Updates</Label>
                   <p className="text-sm text-muted-foreground">
-                    Pass ve rezervasyon durumları hakkında bildirim alın
+                    Receive updates about your passes and reservations
                   </p>
                 </div>
                 <Switch
@@ -384,9 +384,9 @@ export default function ProfileSettingsPage() {
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Özel Teklifler</Label>
+                  <Label>Personalized Offers</Label>
                   <p className="text-sm text-muted-foreground">
-                    Size özel hazırlanmış teklifler hakkında bildirim alın
+                    Receive offers prepared just for you
                   </p>
                 </div>
                 <Switch
@@ -409,18 +409,18 @@ export default function ProfileSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Smartphone className="w-5 h-5" />
-                SMS Bildirimleri
+                SMS Notifications
               </CardTitle>
               <CardDescription>
-                SMS ile bildirim almak istediğiniz durumları seçin
+                Choose when you want to receive SMS alerts
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Pazarlama SMS'leri</Label>
+                  <Label>Marketing SMS</Label>
                   <p className="text-sm text-muted-foreground">
-                    Kampanya ve özel teklifler için SMS alın
+                    Get SMS updates about campaigns and special offers
                   </p>
                 </div>
                 <Switch
@@ -441,9 +441,9 @@ export default function ProfileSettingsPage() {
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Hatırlatma SMS'leri</Label>
+                  <Label>Reminder SMS</Label>
                   <p className="text-sm text-muted-foreground">
-                    Pass bitiş tarihi ve önemli hatırlatmalar için SMS alın
+                    Get SMS reminders for pass expiry and important updates
                   </p>
                 </div>
                 <Switch
@@ -466,18 +466,18 @@ export default function ProfileSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bell className="w-5 h-5" />
-                Push Bildirimleri
+                Push Notifications
               </CardTitle>
               <CardDescription>
-                Mobil uygulama bildirimleri (yakında)
+                Mobile app notifications (coming soon)
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Push Bildirimleri</Label>
+                  <Label>Push Notifications</Label>
                   <p className="text-sm text-muted-foreground">
-                    Mobil uygulama üzerinden bildirim alın
+                    Receive notifications through the mobile app
                   </p>
                 </div>
                 <Switch
@@ -501,12 +501,12 @@ export default function ProfileSettingsPage() {
               {saving ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Kaydediliyor...
+                  Saving...
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4 mr-2" />
-                  Değişiklikleri Kaydet
+                  Save Changes
                 </>
               )}
             </Button>
@@ -519,15 +519,15 @@ export default function ProfileSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Lock className="w-5 h-5" />
-                Şifre Değiştir
+                Change Password
               </CardTitle>
               <CardDescription>
-                Hesap güvenliğiniz için güçlü bir şifre kullanın
+                Use a strong password to keep your account secure
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="currentPassword">Mevcut Şifre</Label>
+                <Label htmlFor="currentPassword">Current Password</Label>
                 <Input
                   id="currentPassword"
                   type="password"
@@ -539,7 +539,7 @@ export default function ProfileSettingsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="newPassword">Yeni Şifre</Label>
+                <Label htmlFor="newPassword">New Password</Label>
                 <Input
                   id="newPassword"
                   type="password"
@@ -549,12 +549,12 @@ export default function ProfileSettingsPage() {
                   }
                 />
                 <p className="text-xs text-muted-foreground">
-                  En az 8 karakter uzunluğunda olmalıdır
+                  Must be at least 8 characters long
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Yeni Şifre (Tekrar)</Label>
+                <Label htmlFor="confirmPassword">New Password (Confirm)</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -568,7 +568,7 @@ export default function ProfileSettingsPage() {
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-xs">
-                  Şifrenizi değiştirdikten sonra tüm cihazlardan çıkış yapmanız gerekebilir.
+                  After changing your password, you may need to sign out from all devices.
                 </AlertDescription>
               </Alert>
 
@@ -580,12 +580,12 @@ export default function ProfileSettingsPage() {
                 {changingPassword ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Değiştiriliyor...
+                    Changing...
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Şifreyi Değiştir
+                    Change Password
                   </>
                 )}
               </Button>

@@ -10,15 +10,16 @@ import {
   Search,
   Download,
   Filter,
-  Mail,
   Phone,
   MoreHorizontal,
   CheckCircle,
   XCircle,
   Eye,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Mail
 } from "lucide-react";
+import CustomerDevicesModal from './CustomerDevicesModal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +41,8 @@ export default function AdminCustomers() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({ totalCustomers: 0, active: 0, inactive: 0, avgPasses: "0" });
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [showDevicesModal, setShowDevicesModal] = useState(false);
 
   useEffect(() => {
     fetchCustomers();
@@ -194,13 +197,12 @@ export default function AdminCustomers() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => toast.info('Customer details feature coming soon')}>
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedCustomer(customer);
+                          setShowDevicesModal(true);
+                        }}>
                           <Eye className="h-4 w-4 mr-2" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => toast.info('Email feature coming soon')}>
-                          <Mail className="h-4 w-4 mr-2" />
-                          Send Email
+                          View Device Details
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -211,6 +213,18 @@ export default function AdminCustomers() {
           </CardContent>
         </Card>
       </div>
+
+      {selectedCustomer && (
+        <CustomerDevicesModal
+          customerId={selectedCustomer.id}
+          customerName={selectedCustomer.name}
+          isOpen={showDevicesModal}
+          onClose={() => {
+            setShowDevicesModal(false);
+            setSelectedCustomer(null);
+          }}
+        />
+      )}
     </AdminLayout>
   );
 }

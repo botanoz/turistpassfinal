@@ -9,13 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import AdminLayout from "./AdminLayout";
-import { Search, Filter, Eye, MessageSquare, Clock, CheckCircle } from "lucide-react";
+import { Search, Filter, Eye, MessageSquare, Clock, CheckCircle, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
 type TicketResponse = {
   id: string;
-  sender: "business" | "admin";
+  sender: "business" | "admin" | "customer";
   message: string;
   createdAt: string;
 };
@@ -23,13 +23,14 @@ type TicketResponse = {
 type AdminTicket = {
   id: string;
   from: string;
-  type: string;
+  type: "business" | "customer";
   subject: string;
-  status: "open" | "in_progress" | "resolved";
-  priority: "low" | "medium" | "high";
+  status: "open" | "in_progress" | "resolved" | "waiting_customer" | "closed";
+  priority: "low" | "medium" | "high" | "normal" | "urgent";
   category?: "technical" | "business" | "customer";
   date: string;
   lastUpdate: string;
+  orderNumber?: string | null;
   responseSlaMinutes?: number | null;
   resolutionSlaMinutes?: number | null;
   responses: TicketResponse[];
@@ -39,6 +40,7 @@ export default function AdminSupport() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [source, setSource] = useState<"business" | "customer">("business");
   const [tickets, setTickets] = useState<AdminTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<AdminTicket | null>(null);
@@ -50,7 +52,8 @@ export default function AdminSupport() {
     if (statusFilter !== "all") params.set("status", statusFilter);
     if (categoryFilter !== "all") params.set("category", categoryFilter);
     if (searchQuery) params.set("search", searchQuery);
-    const res = await fetch(`/api/admin/support?${params.toString()}`);
+    const endpoint = source === "business" ? "/api/admin/support" : "/api/admin/order-support";
+    const res = await fetch(`${endpoint}?${params.toString()}`);
     const json = await res.json();
     if (!res.ok || !json.success) {
       throw new Error(json.error || "Failed to fetch support tickets");
@@ -61,28 +64,31 @@ export default function AdminSupport() {
         avgResponseTime: json.slaStats.avgResponseTime || 0,
         avgResolutionTime: json.slaStats.avgResolutionTime || 0,
       });
+    } else {
+      setSlaStats(null);
     }
     return (json.tickets as any[]).map((t) => ({
       id: t.id as string,
       from: t.from as string,
-      type: t.type as string,
+      type: (t.type as "business" | "customer") ?? source,
       subject: t.subject as string,
-      status: t.status as "open" | "in_progress" | "resolved",
-      priority: t.priority as "low" | "medium" | "high",
+      status: (t.status as AdminTicket["status"]) ?? "open",
+      priority: (t.priority as AdminTicket["priority"]) ?? "normal",
       category: t.category as "technical" | "business" | "customer" | undefined,
       date: t.date as string,
-      lastUpdate: t.lastUpdate as string,
+      lastUpdate: (t.lastUpdate as string) ?? (t.date as string),
+      orderNumber: (t.orderNumber as string | undefined) ?? null,
       responseSlaMinutes: t.responseSlaMinutes,
       resolutionSlaMinutes: t.resolutionSlaMinutes,
       responses:
         (t.responses as any[] | undefined)?.map((r) => ({
           id: r.id as string,
-          sender: r.sender as "business" | "admin",
+          sender: (r.sender as TicketResponse["sender"]) ?? "business",
           message: r.message as string,
           createdAt: r.createdAt as string,
         })) ?? [],
     }));
-  }, [statusFilter, categoryFilter, searchQuery]);
+  }, [statusFilter, categoryFilter, searchQuery, source]);
 
   const refreshTickets = useCallback(async () => {
     const latest = await loadTickets();
@@ -111,7 +117,8 @@ export default function AdminSupport() {
   const filteredTickets = tickets.filter(ticket => {
     const matchesSearch = ticket.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          ticket.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         ticket.subject.toLowerCase().includes(searchQuery.toLowerCase());
+                         ticket.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (ticket.orderNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
     const matchesStatus = statusFilter === "all" || ticket.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -128,6 +135,8 @@ export default function AdminSupport() {
     { label: "Open", value: tickets.filter(t => t.status === "open").length },
     { label: "In Progress", value: tickets.filter(t => t.status === "in_progress").length },
     { label: "Resolved", value: tickets.filter(t => t.status === "resolved").length },
+    { label: "Waiting", value: tickets.filter(t => t.status === "waiting_customer").length },
+    { label: "Closed", value: tickets.filter(t => t.status === "closed").length },
     ...(slaStats ? [
       { label: "Avg Response Time", value: formatSlaTime(slaStats.avgResponseTime), isTime: true },
       { label: "Avg Resolution Time", value: formatSlaTime(slaStats.avgResolutionTime), isTime: true }
@@ -165,35 +174,47 @@ export default function AdminSupport() {
 
         <Card>
           <CardHeader>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search tickets..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap gap-2">
+                <Button variant={source === "business" ? "default" : "outline"} onClick={() => setSource("business")}>
+                  Business Tickets
+                </Button>
+                <Button variant={source === "customer" ? "default" : "outline"} onClick={() => setSource("customer")}>
+                  Customer Tickets
+                </Button>
               </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-full sm:w-40">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="technical">Technical</SelectItem>
-                  <SelectItem value="business">Business</SelectItem>
-                  <SelectItem value="customer">Customer</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-40">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="open">Open</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Search tickets..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+                </div>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-full sm:w-40">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem value="technical">Technical</SelectItem>
+                    <SelectItem value="business">Business</SelectItem>
+                    <SelectItem value="customer">Customer</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-40">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="resolved">Resolved</SelectItem>
+                    <SelectItem value="waiting_customer">Waiting Customer</SelectItem>
+                    <SelectItem value="closed">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -223,19 +244,33 @@ export default function AdminSupport() {
                             {ticket.category}
                           </Badge>
                         )}
-                        <Badge variant={ticket.status === "open" ? "default" : ticket.status === "in_progress" ? "secondary" : "outline"}>
+                        <Badge
+                          variant={
+                            ticket.status === "open"
+                              ? "default"
+                              : ticket.status === "in_progress" || ticket.status === "waiting_customer"
+                              ? "secondary"
+                              : "outline"
+                          }
+                        >
                           {ticket.status === "open" && <Clock className="h-3 w-3 mr-1" />}
-                          {ticket.status === "resolved" && <CheckCircle className="h-3 w-3 mr-1" />}
-                          {ticket.status.replace('_', ' ')}
+                          {["resolved", "closed"].includes(ticket.status) && <CheckCircle className="h-3 w-3 mr-1" />}
+                          {ticket.status.replace(/_/g, " ")}
                         </Badge>
-                        <Badge variant={ticket.priority === "high" ? "destructive" : "secondary"}>
+                        <Badge variant={ticket.priority === "high" || ticket.priority === "urgent" ? "destructive" : "secondary"}>
                           {ticket.priority}
                         </Badge>
                         <Badge variant="outline">{ticket.type}</Badge>
+                        {ticket.orderNumber && (
+                          <Badge variant="outline" className="bg-slate-50 text-slate-700">
+                            Order #{ticket.orderNumber}
+                          </Badge>
+                        )}
                       </div>
                       <h3 className="font-semibold mb-1">{ticket.subject}</h3>
                       <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                         <span>From: <strong>{ticket.from}</strong></span>
+                        {ticket.orderNumber && <span>Order: <strong>#{ticket.orderNumber}</strong></span>}
                         <span className="flex items-center gap-1">
                           <MessageSquare className="h-3 w-3" />
                           {ticket.responses.length} {ticket.responses.length === 1 ? "response" : "responses"}
@@ -287,6 +322,7 @@ export default function AdminSupport() {
                 open={isDialogOpen}
                 initialMessages={selectedTicket.responses}
                 initialStatus={selectedTicket.status}
+                source={selectedTicket.type}
                 onUpdated={refreshTickets}
               />
             </DialogContent>
@@ -301,7 +337,8 @@ type AdminConversationDialogProps = {
   ticketId: string;
   open: boolean;
   initialMessages: TicketResponse[];
-  initialStatus: "open" | "in_progress" | "resolved";
+  initialStatus: AdminTicket["status"];
+  source: AdminTicket["type"];
   onUpdated: () => Promise<void>;
 };
 
@@ -310,43 +347,49 @@ function AdminConversationDialog({
   open,
   initialMessages,
   initialStatus,
+  source,
   onUpdated,
 }: AdminConversationDialogProps) {
   const [messages, setMessages] = useState<TicketResponse[]>(initialMessages);
-  const [status, setStatus] = useState<"open" | "in_progress" | "resolved">(
-    initialStatus === "resolved" ? "in_progress" : initialStatus,
-  );
+  const normalizeStatus = (value: AdminTicket["status"]) => value || "open";
+  const [status, setStatus] = useState<AdminTicket["status"]>(normalizeStatus(initialStatus));
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const statusOptions =
+    source === "customer"
+      ? ["open", "in_progress", "waiting_customer", "resolved", "closed"]
+      : ["open", "in_progress", "resolved"];
 
   useEffect(() => {
     setMessages(initialMessages);
   }, [initialMessages]);
 
   useEffect(() => {
-    setStatus(initialStatus === "resolved" ? "in_progress" : initialStatus);
+    setStatus(normalizeStatus(initialStatus));
   }, [initialStatus]);
 
   const fetchConversation = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const res = await fetch(`/api/admin/support/${ticketId}`);
+      const baseEndpoint = source === "business" ? "/api/admin/support" : "/api/admin/order-support";
+      const res = await fetch(`${baseEndpoint}/${ticketId}`);
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || "Failed to load conversation");
       setMessages((json.messages ?? []) as TicketResponse[]);
       if (json.ticket?.status) {
-        const nextStatus = json.ticket.status as "open" | "in_progress" | "resolved";
-        setStatus(nextStatus === "resolved" ? "in_progress" : nextStatus);
+        const nextStatus = json.ticket.status as AdminTicket["status"];
+        setStatus(normalizeStatus(nextStatus));
       }
     } catch (err: any) {
       setError(err.message ?? "Failed to load conversation");
     } finally {
       setIsLoading(false);
     }
-  }, [ticketId]);
+  }, [ticketId, source]);
 
   useEffect(() => {
     if (!open) return;
@@ -357,7 +400,8 @@ function AdminConversationDialog({
     if (!message.trim()) return;
     try {
       setIsSending(true);
-      const res = await fetch("/api/admin/support", {
+      const baseEndpoint = source === "business" ? "/api/admin/support" : "/api/admin/order-support";
+      const res = await fetch(baseEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ticketId, message, status }),
@@ -407,7 +451,7 @@ function AdminConversationDialog({
                 >
                   <div className="flex items-center justify-between mb-2">
                     <Badge variant={response.sender === "admin" ? "default" : "secondary"} className="text-xs">
-                      {response.sender === "admin" ? "Admin" : "Business"}
+                      {response.sender === "admin" ? "Admin" : response.sender === "customer" ? "Customer" : "Business"}
                     </Badge>
                     <span className="text-xs text-muted-foreground">
                       {new Date(response.createdAt).toLocaleString()}
@@ -441,9 +485,11 @@ function AdminConversationDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="resolved">Resolved</SelectItem>
+                {statusOptions.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option.replace("_", " ")}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -455,7 +501,7 @@ function AdminConversationDialog({
           >
             {isSending ? (
               <>
-                <span className="animate-spin mr-2">⏳</span>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Sending...
               </>
             ) : (

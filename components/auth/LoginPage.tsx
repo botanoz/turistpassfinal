@@ -20,6 +20,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { useDeviceTracking } from "@/hooks/useDeviceTracking";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,6 +28,7 @@ export default function LoginPage() {
   const redirectTo = searchParams.get("redirect") || "/";
   const checkEmail = searchParams.get("checkEmail");
   const supabase = useMemo(() => createClient(), []);
+  const { trackDevice } = useDeviceTracking();
 
   const [formData, setFormData] = useState({
     email: "",
@@ -39,8 +41,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (checkEmail) {
-      toast.info("Hesabın oluşturuldu. Lütfen e-postanı kontrol ederek onayla.");
-      router.replace("/login"); // kısa ömürlü parametreyi temizle
+      toast.info("Your account has been created. Please check your email to confirm.");
+      router.replace("/login"); // clear temporary parameter
     }
   }, [checkEmail, router]);
 
@@ -107,6 +109,9 @@ export default function LoginPage() {
       const accountType =
         (data.user?.user_metadata?.account_type as string | undefined) ??
         "customer";
+
+      // Track device after successful login
+      await trackDevice();
 
       toast.success("Login successful! Welcome back.");
       router.push(accountType === "business" ? "/business/dashboard" : redirectTo);
@@ -285,13 +290,13 @@ export default function LoginPage() {
 
               <div className="text-xs text-muted-foreground text-center space-y-1">
                 <div>
-                  İşletme hesabı için{" "}
+                  For business accounts:{" "}
                   <Link href="/business/login" className="text-primary hover:underline font-medium">
-                    işletme girişi
+                    business login
                   </Link>{" "}
-                  veya{" "}
+                  or{" "}
                   <Link href="/business/apply" className="text-primary hover:underline font-medium">
-                    işletme kaydı
+                    business registration
                   </Link>
                   .
                 </div>

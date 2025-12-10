@@ -19,6 +19,7 @@ import {
   Wallet,
   Clock3,
   LayoutDashboard,
+  LifeBuoy,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -60,6 +61,7 @@ export default function UserProfileDropdown({
           { href: "/visit-history", label: "Visit History", icon: Clock3 },
           { href: "/favorites", label: "Favorites", icon: Heart },
           { href: "/messages", label: "Messages", icon: MessageSquare },
+          { href: "/support", label: "Support & Help", icon: LifeBuoy },
           { href: "/payments", label: "Payments & Billing", icon: Wallet },
         ];
 

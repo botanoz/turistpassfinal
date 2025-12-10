@@ -15,10 +15,30 @@ import {
   CheckCircle,
   Ticket,
   Calendar,
-  Loader2
+  Loader2,
+  Trash2,
+  CheckCheck,
+  MoreVertical,
+  Circle
 } from "lucide-react";
 import Link from "next/link";
-import { getUserMessages, markMessageAsRead, type Message } from "@/lib/services/messageService";
+import {
+  getUserMessages,
+  markMessageAsRead,
+  markAllMessagesAsRead,
+  deleteMessage,
+  deleteAllMessages,
+  deleteReadMessages,
+  type Message
+} from "@/lib/services/messageService";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 export default function MessagesPage() {
   const router = useRouter();
@@ -27,6 +47,7 @@ export default function MessagesPage() {
   const [isAuthed, setIsAuthed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Check authentication
   useEffect(() => {
@@ -51,29 +72,22 @@ export default function MessagesPage() {
   }, [router, supabase]);
 
   // Fetch messages from database
+  const loadMessages = async () => {
+    setIsLoading(true);
+    try {
+      const fetchedMessages = await getUserMessages();
+      setMessages(fetchedMessages);
+    } catch (error) {
+      console.error('Error loading messages:', error);
+      toast.error("Failed to load messages");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isAuthed) return;
-
-    let mounted = true;
-    (async () => {
-      setIsLoading(true);
-      try {
-        const fetchedMessages = await getUserMessages();
-        if (mounted) {
-          setMessages(fetchedMessages);
-        }
-      } catch (error) {
-        console.error('Error loading messages:', error);
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
+    loadMessages();
   }, [isAuthed]);
 
   if (isChecking || !isAuthed) {
@@ -119,12 +133,71 @@ export default function MessagesPage() {
     // Update in database
     const success = await markMessageAsRead(messageId);
     if (!success) {
-      console.error('Failed to mark message as read in database');
-      // Optionally revert the optimistic update
+      toast.error('Failed to mark message as read');
+      // Revert optimistic update
+      loadMessages();
     }
   };
 
+  const handleMarkAllAsRead = async () => {
+    if (isProcessing) return;
+
+    const unreadCount = messages.filter(m => !m.read).length;
+    if (unreadCount === 0) {
+      toast.info("No unread messages");
+      return;
+    }
+
+    setIsProcessing(true);
+    const success = await markAllMessagesAsRead();
+
+    if (success) {
+      toast.success(`Marked ${unreadCount} message${unreadCount > 1 ? 's' : ''} as read`);
+      await loadMessages();
+    } else {
+      toast.error("Failed to mark all messages as read");
+    }
+    setIsProcessing(false);
+  };
+
+  const handleDeleteAll = async () => {
+    if (isProcessing) return;
+
+    setIsProcessing(true);
+    const success = await deleteAllMessages();
+
+    if (success) {
+      toast.success("All messages deleted");
+      setMessages([]);
+    } else {
+      toast.error("Failed to delete messages");
+    }
+    setIsProcessing(false);
+  };
+
+  const handleDeleteRead = async () => {
+    if (isProcessing) return;
+
+    const readCount = messages.filter(m => m.read).length;
+    if (readCount === 0) {
+      toast.info("No read messages to delete");
+      return;
+    }
+
+    setIsProcessing(true);
+    const success = await deleteReadMessages();
+
+    if (success) {
+      toast.success(`${readCount} read message${readCount > 1 ? 's' : ''} deleted`);
+      await loadMessages();
+    } else {
+      toast.error("Failed to delete messages");
+    }
+    setIsProcessing(false);
+  };
+
   const unreadCount = messages.filter(m => !m.read).length;
+  const readCount = messages.filter(m => m.read).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-background py-8 px-4">
@@ -137,12 +210,54 @@ export default function MessagesPage() {
           </Button>
           <div className="flex-1">
             <h1 className="text-3xl font-bold">Messages</h1>
-            <p className="text-muted-foreground">Your notifications and updates</p>
+            <p className="text-muted-foreground">
+              {unreadCount > 0
+                ? `${unreadCount} unread message${unreadCount > 1 ? 's' : ''}`
+                : "All caught up!"}
+            </p>
           </div>
-          {unreadCount > 0 && (
-            <Badge variant="default" className="text-lg px-3 py-1">
-              {unreadCount} new
-            </Badge>
+
+          {messages.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" disabled={isProcessing}>
+                  <MoreVertical className="h-4 w-4 mr-2" />
+                  Actions
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem
+                  onClick={handleMarkAllAsRead}
+                  disabled={unreadCount === 0 || isProcessing}
+                >
+                  <CheckCheck className="h-4 w-4 mr-2" />
+                  Mark All as Read
+                  {unreadCount > 0 && (
+                    <Badge className="ml-auto" variant="secondary">{unreadCount}</Badge>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleDeleteRead}
+                  disabled={readCount === 0 || isProcessing}
+                  className="text-orange-600"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear Read Messages
+                  {readCount > 0 && (
+                    <Badge className="ml-auto" variant="secondary">{readCount}</Badge>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleDeleteAll}
+                  disabled={isProcessing}
+                  className="text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear All Messages
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
 
@@ -167,7 +282,7 @@ export default function MessagesPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {messages.map((message) => {
               const Icon = getMessageIcon(message.type);
               const colorClass = getMessageColor(message.type);
@@ -175,29 +290,38 @@ export default function MessagesPage() {
               return (
                 <Card
                   key={message.id}
-                  className={`${!message.read ? 'border-primary/50 shadow-md' : ''} hover:shadow-lg transition-shadow cursor-pointer`}
+                  className={`${!message.read ? 'border-l-4 border-l-primary bg-primary/5' : 'opacity-70'} hover:shadow-md transition-all cursor-pointer`}
                   onClick={() => !message.read && handleMarkAsRead(message.id)}
                 >
                   <CardContent className="p-4">
                     <div className="flex gap-4">
-                      <div className={`p-3 rounded-lg ${colorClass} h-fit`}>
-                        <Icon className="h-6 w-6" />
+                      {/* Icon */}
+                      <div className={`p-2.5 rounded-lg ${colorClass} h-fit flex-shrink-0`}>
+                        <Icon className="h-5 w-5" />
                       </div>
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className={`font-semibold ${!message.read ? 'text-primary' : ''}`}>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h3 className={`font-semibold ${!message.read ? 'text-foreground' : 'text-muted-foreground'}`}>
                             {message.title}
                           </h3>
                           {!message.read && (
-                            <Badge variant="default" className="shrink-0">New</Badge>
+                            <Circle className="h-2 w-2 fill-primary text-primary flex-shrink-0 mt-1.5" />
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground">
+
+                        <p className="text-sm text-muted-foreground mb-2">
                           {message.content}
                         </p>
+
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <Calendar className="h-3 w-3" />
-                          <span>{new Date(message.date).toLocaleDateString()}</span>
+                          <span>{new Date(message.date).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: new Date(message.date).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                          })}</span>
                         </div>
                       </div>
                     </div>
@@ -205,6 +329,16 @@ export default function MessagesPage() {
                 </Card>
               );
             })}
+          </div>
+        )}
+
+        {messages.length > 0 && (
+          <div className="text-center text-sm text-muted-foreground pt-4">
+            <p>
+              {unreadCount > 0
+                ? `Tap a message to mark it as read`
+                : `Use "Actions" menu to manage messages`}
+            </p>
           </div>
         )}
 

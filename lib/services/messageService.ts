@@ -98,6 +98,133 @@ export async function markMessageAsRead(messageId: string): Promise<boolean> {
 }
 
 /**
+ * Mark all messages as read for current user
+ */
+export async function markAllMessagesAsRead(): Promise<boolean> {
+  const supabase = createClient();
+
+  try {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error('No authenticated user');
+      return false;
+    }
+
+    const { error } = await supabase
+      .from('messages')
+      .update({ read: true, updated_at: new Date().toISOString() })
+      .eq('customer_id', user.id)
+      .eq('read', false);
+
+    if (error) {
+      console.error('Error marking all messages as read:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in markAllMessagesAsRead:', error);
+    return false;
+  }
+}
+
+/**
+ * Delete a single message
+ */
+export async function deleteMessage(messageId: string): Promise<boolean> {
+  const supabase = createClient();
+
+  try {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error('No authenticated user');
+      return false;
+    }
+
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('id', messageId)
+      .eq('customer_id', user.id);
+
+    if (error) {
+      console.error('Error deleting message:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in deleteMessage:', error);
+    return false;
+  }
+}
+
+/**
+ * Delete all messages for current user
+ */
+export async function deleteAllMessages(): Promise<boolean> {
+  const supabase = createClient();
+
+  try {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error('No authenticated user');
+      return false;
+    }
+
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('customer_id', user.id);
+
+    if (error) {
+      console.error('Error deleting all messages:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in deleteAllMessages:', error);
+    return false;
+  }
+}
+
+/**
+ * Delete all read messages for current user
+ */
+export async function deleteReadMessages(): Promise<boolean> {
+  const supabase = createClient();
+
+  try {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error('No authenticated user');
+      return false;
+    }
+
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('customer_id', user.id)
+      .eq('read', true);
+
+    if (error) {
+      console.error('Error deleting read messages:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in deleteReadMessages:', error);
+    return false;
+  }
+}
+
+/**
  * Create a new message for a user
  * (Admin function - requires admin privileges)
  */

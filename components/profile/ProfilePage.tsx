@@ -29,13 +29,15 @@ import {
   Save,
   X,
   Key,
-  Settings
+  Settings,
+  Star
 } from "lucide-react";
 import Link from "next/link";
 import type { User as LocalUser } from "@/lib/types/user";
 import { toast } from "sonner";
 import { authService } from "@/lib/services/authService";
 import FavoritesSection from "./FavoritesSection";
+import ReviewsSection from "./ReviewsSection";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -57,6 +59,7 @@ export default function ProfilePage() {
     newPassword: "",
     confirmPassword: ""
   });
+  const [activeTab, setActiveTab] = useState("profile");
 
   const mapLocalPasses = (user: LocalUser) => {
   return (user.passes || []).map((pass) => ({
@@ -369,7 +372,7 @@ const hydrateFromLocalUser = (user: LocalUser) => {
                   <Link href="/profile/settings">
                     <Button variant="outline">
                       <Settings className="h-4 w-4 mr-2" />
-                      Ayarlar
+                      Settings
                     </Button>
                   </Link>
                   <Button onClick={handleEdit} variant="outline">
@@ -531,14 +534,91 @@ const hydrateFromLocalUser = (user: LocalUser) => {
           </CardContent>
         </Card>
 
-        {passes.length > 0 && (
+        {/* Tabs Navigation */}
+        <div className="border-b overflow-x-auto">
+          <div className="flex gap-2 sm:gap-4 min-w-max sm:min-w-0">
+            <button
+              onClick={() => setActiveTab("profile")}
+              className={`px-3 sm:px-4 py-3 font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === "profile"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <UserIcon className="h-4 w-4" />
+                <span className="hidden sm:inline">My Profile</span>
+                <span className="sm:hidden">Profile</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab("passes")}
+              className={`px-3 sm:px-4 py-3 font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === "passes"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Ticket className="h-4 w-4" />
+                <span className="hidden sm:inline">My Passes</span>
+                <span className="sm:hidden">Passes</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab("favorites")}
+              className={`px-3 sm:px-4 py-3 font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === "favorites"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Heart className="h-4 w-4" />
+                <span>Favorites</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab("reviews")}
+              className={`px-3 sm:px-4 py-3 font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === "reviews"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Star className="h-4 w-4" />
+                <span className="hidden sm:inline">My Reviews</span>
+                <span className="sm:hidden">Reviews</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === "profile" && (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Profile Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Your profile information is displayed above. Click "Edit Profile" to make changes.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === "passes" && passes.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Recent Passes</CardTitle>
+              <CardTitle>My Passes</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {passes.slice(0, 3).map((pass) => (
+                {passes.map((pass) => (
                   <div
                     key={pass.id}
                     className="flex items-center justify-between p-3 bg-muted rounded-lg"
@@ -563,18 +643,31 @@ const hydrateFromLocalUser = (user: LocalUser) => {
                     </Badge>
                   </div>
                 ))}
-                {passes.length > 3 && (
-                  <Button variant="outline" className="w-full" asChild>
-                    <Link href="/my-passes">View All Passes</Link>
-                  </Button>
-                )}
+                <Button variant="outline" className="w-full" asChild>
+                  <Link href="/my-passes">View All Passes Details</Link>
+                </Button>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Favorites Section */}
-        <FavoritesSection />
+        {activeTab === "passes" && passes.length === 0 && (
+          <Card>
+            <CardContent className="py-12">
+              <div className="text-center space-y-3">
+                <Ticket className="h-12 w-12 mx-auto text-muted-foreground" />
+                <p className="text-muted-foreground">You don't have any passes yet.</p>
+                <Button asChild>
+                  <Link href="/passes">Browse Passes</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === "favorites" && <FavoritesSection />}
+
+        {activeTab === "reviews" && <ReviewsSection />}
       </div>
     </div>
   );

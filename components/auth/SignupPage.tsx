@@ -136,7 +136,7 @@ export default function SignupPage() {
       }
 
       if (!data.session) {
-        toast.success("Hesap oluşturuldu. Lütfen e-postanı kontrol ederek onayla.");
+        toast.success("Account created. Please check your email to confirm.");
         router.push("/login?checkEmail=1");
         return;
       }
@@ -382,13 +382,13 @@ export default function SignupPage() {
                   </Link>
                 </div>
                 <div className="text-xs">
-                  İşletme hesabı için{" "}
+                  For business accounts:{" "}
                   <Link href="/business/login" className="text-primary hover:underline font-medium">
-                    işletme girişi
+                    business login
                   </Link>{" "}
-                  veya{" "}
+                  or{" "}
                   <Link href="/business/apply" className="text-primary hover:underline font-medium">
-                    işletme kaydı
+                    business registration
                   </Link>
                   .
                 </div>

@@ -42,6 +42,7 @@ import {
   DollarSign,
   FileText,
   RotateCcw,
+  Star,
 } from "lucide-react";
 
 type Notification = {
@@ -151,6 +152,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.prefetch('/admin/invoicing');
     router.prefetch('/admin/orders');
     router.prefetch('/admin/passes');
+    router.prefetch('/admin/reviews');
     router.prefetch('/admin/support');
     router.prefetch('/admin/analytics');
     router.prefetch('/admin/settings');
@@ -175,6 +177,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: "Passes", href: "/admin/passes", icon: CreditCard, permission: "passes" as const },
     { name: "Orders", href: "/admin/orders", icon: ShoppingCart, permission: "orders" as const },
     { name: "Refunds", href: "/admin/refunds", icon: RotateCcw, permission: "orders" as const },
+    { name: "Reviews", href: "/admin/reviews", icon: Star, permission: "customers" as const },
     { name: "Campaigns & Codes", href: "/admin/campaigns", icon: Megaphone, permission: "settings" as const },
     { name: "Announcements", href: "/admin/messages", icon: MessageSquare, permission: "settings" as const },
     { name: "Contact Messages", href: "/admin/contact-messages", icon: MessageSquare, permission: "support" as const },
@@ -355,18 +358,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 p-0">
-              <div className="flex h-16 items-center gap-2 border-b px-6">
+            <SheetContent side="left" className="w-64 p-0 flex flex-col h-full">
+              <div className="flex h-16 items-center gap-2 border-b px-6 flex-shrink-0">
                 <Shield className="h-6 w-6 text-primary" />
                 <div>
                   <h1 className="font-bold text-lg">TuristPass</h1>
                   <p className="text-xs text-muted-foreground">Admin Panel</p>
                 </div>
               </div>
-              <nav className="flex-1 space-y-1 p-4">
-                <NavLinks />
-              </nav>
-              <div className="border-t p-4">
+              <ScrollArea className="flex-1">
+                <nav className="space-y-1 p-4">
+                  <NavLinks />
+                </nav>
+              </ScrollArea>
+              <div className="border-t p-4 flex-shrink-0">
                 <Button variant="outline" className="w-full" onClick={handleLogout}>
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout

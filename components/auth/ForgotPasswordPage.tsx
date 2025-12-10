@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,34 @@ export default function ForgotPasswordPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [countdown, setCountdown] = useState(0);
+  const supabaseRequestPath = useMemo(() => "/api/auth/forgot-password", []);
+
+  const startCountdown = () => {
+    setCountdown(60);
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const requestPasswordReset = async (targetEmail: string) => {
+    const response = await fetch(supabaseRequestPath, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: targetEmail }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data?.success !== true) {
+      throw new Error(data?.error || "Failed to send reset link");
+    }
+  };
 
   const validateEmail = (email: string) => {
     return /\S+@\S+\.\S+/.test(email);
@@ -40,26 +68,17 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    setError("");
-    setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setIsLoading(false);
-    setIsSubmitted(true);
-    
-    // Start countdown for resend option
-    setCountdown(60);
-    const timer = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    try {
+      setError("");
+      setIsLoading(true);
+      await requestPasswordReset(email);
+      setIsSubmitted(true);
+      startCountdown();
+    } catch (err: any) {
+      setError(err?.message || "Unable to send reset link");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleTryAgain = () => {
@@ -70,21 +89,15 @@ export default function ForgotPasswordPage() {
   };
 
   const handleResendEmail = async () => {
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsLoading(false);
-    
-    // Restart countdown
-    setCountdown(60);
-    const timer = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    try {
+      setIsLoading(true);
+      await requestPasswordReset(email);
+      startCountdown();
+    } catch (err: any) {
+      setError(err?.message || "Unable to resend reset link");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isSubmitted) {
